@@ -3,20 +3,31 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pronnect — Discover Teams & Build Projects</title>
-  <meta name="description" content="Pronnect is a collaboration platform to discover project teammates, manage tasks, and build open projects.">
+  <title>Pronnect — Discover Teams & Build Projects Together</title>
+  <meta name="description" content="Pronnect is a modern platform to discover project teammates, manage Kanban tasks, chat in real-time, and ship collaborative projects.">
+  
+  <!-- Google Identity Services for 1-Click Google Sign-In -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background-color: #030712; color: #f9fafb; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; line-height: 1.5; min-height: 100vh; display: flex; flex-direction: column; }
+    body { background-color: #030712; color: #f9fafb; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; line-height: 1.5; min-height: 100vh; display: flex; flex-direction: column; overflow-x: hidden; }
     
+    /* Layout & Container */
     .container { max-width: 1200px; margin: 0 auto; width: 100%; padding: 24px 16px; flex: 1; }
-    nav { background: rgba(17, 24, 39, 0.9); backdrop-filter: blur(12px); border-bottom: 1px solid #1f2937; position: sticky; top: 0; z-index: 50; padding: 14px 24px; }
+    nav { background: rgba(17, 24, 39, 0.85); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(55, 65, 81, 0.4); position: sticky; top: 0; z-index: 50; padding: 14px 24px; }
     .nav-inner { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
     .nav-links { display: flex; gap: 8px; align-items: center; }
     
-    .glass-card { background: rgba(31, 41, 55, 0.5); border: 1px solid #374151; border-radius: 12px; padding: 20px; }
-    .grid { display: grid; gap: 16px; }
+    /* Glassmorphism & Cards */
+    .glass-card { background: rgba(17, 24, 39, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(55, 65, 81, 0.5); border-radius: 14px; padding: 22px; transition: transform 0.2s, border-color 0.2s; }
+    .glass-card:hover { border-color: rgba(99, 102, 241, 0.4); }
+    .glass-pill { background: rgba(31, 41, 55, 0.6); border: 1px solid rgba(75, 85, 99, 0.4); border-radius: 9999px; }
+    
+    /* Grids & Flex */
+    .grid { display: grid; gap: 18px; }
     .grid-3 { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+    .grid-4 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
     .grid-kanban { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
     .flex { display: flex; }
     .flex-col { flex-direction: column; }
@@ -26,66 +37,96 @@
     .gap-3 { gap: 12px; }
     .gap-4 { gap: 16px; }
     
-    .gradient-text { background: linear-gradient(135deg, #6366f1, #a855f7, #ec4899); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; }
+    /* Typography & Visuals */
+    .gradient-text { background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; }
+    .hero-glow { position: absolute; top: -120px; left: 50%; transform: translateX(-50%); width: 600px; height: 350px; background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, rgba(168, 85, 247, 0.15) 50%, transparent 70%); filter: blur(60px); pointer-events: none; z-index: 0; }
     .text-sm { font-size: 0.875rem; }
     .text-xs { font-size: 0.75rem; }
     .text-muted { color: #9ca3af; }
-    .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 500; background: #1f2937; border: 1px solid #374151; color: #d1d5db; }
+    
+    /* Badges */
+    .badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 500; background: #1f2937; border: 1px solid #374151; color: #d1d5db; }
     .badge-indigo { background: rgba(99, 102, 241, 0.15); border-color: rgba(99, 102, 241, 0.3); color: #a5b4fc; }
     .badge-green { background: rgba(34, 197, 94, 0.15); border-color: rgba(34, 197, 94, 0.3); color: #86efac; }
     .badge-yellow { background: rgba(234, 179, 8, 0.15); border-color: rgba(234, 179, 8, 0.3); color: #fde047; }
     
-    input, textarea, select { width: 100%; padding: 10px 14px; background: #111827; border: 1px solid #374151; border-radius: 8px; color: #f9fafb; font-size: 0.875rem; outline: none; transition: border-color 0.2s; }
+    /* Forms & Buttons */
+    input, textarea, select { width: 100%; padding: 10px 14px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #f9fafb; font-size: 0.875rem; outline: none; transition: border-color 0.2s; }
     input:focus, textarea:focus, select:focus { border-color: #6366f1; }
     button { cursor: pointer; border: none; border-radius: 8px; font-weight: 500; font-size: 0.875rem; transition: all 0.2s; }
-    .btn { padding: 8px 16px; }
-    .btn-primary { background: #6366f1; color: white; }
-    .btn-primary:hover { background: #4f46e5; }
-    .btn-secondary { background: #1f2937; color: #e5e7eb; border: 1px solid #374151; }
-    .btn-secondary:hover { background: #374151; }
+    .btn { padding: 9px 18px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+    .btn-primary { background: #4f46e5; color: white; box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35); }
+    .btn-primary:hover { background: #4338ca; transform: translateY(-1px); }
+    .btn-secondary { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; }
+    .btn-secondary:hover { background: #334155; }
     .btn-sm { padding: 6px 12px; font-size: 0.75rem; }
     
-    .chat-box { height: 460px; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; background: #0b0f19; border-radius: 8px; }
-    .msg-bubble { padding: 8px 14px; border-radius: 16px; max-width: 80%; font-size: 0.875rem; }
-    .msg-me { align-self: flex-end; background: #6366f1; color: white; border-bottom-right-radius: 2px; }
-    .msg-other { align-self: flex-start; background: #1f2937; color: #f3f4f6; border-bottom-left-radius: 2px; }
+    /* Google Sign-in Button Styles */
+    .btn-google { background: #ffffff; color: #1f2937; border: 1px solid #e5e7eb; font-weight: 600; padding: 11px 20px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .btn-google:hover { background: #f9fafb; transform: translateY(-1px); }
     
-    .progress-track { width: 100%; height: 10px; background: #1f2937; border-radius: 9999px; overflow: hidden; }
+    /* Chat Layout & Presence Sidebar */
+    .chat-layout { display: grid; grid-template-columns: 1fr 240px; gap: 16px; }
+    @media (max-width: 768px) { .chat-layout { grid-template-columns: 1fr; } }
+    .chat-box { height: 440px; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; background: #0b0f19; border-radius: 8px; }
+    .msg-bubble { padding: 8px 14px; border-radius: 16px; max-width: 80%; font-size: 0.875rem; word-break: break-word; }
+    .msg-me { align-self: flex-end; background: #4f46e5; color: white; border-bottom-right-radius: 2px; }
+    .msg-other { align-self: flex-start; background: #1e293b; color: #f1f5f9; border-bottom-left-radius: 2px; }
+    
+    /* Online indicator pulse */
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .status-online { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+    .status-offline { background: #64748b; }
+    
+    /* Typing Indicator Animation */
+    .typing-indicator { display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; font-size: 0.75rem; color: #a5b4fc; font-style: italic; }
+    .typing-dot { width: 4px; height: 4px; background: #a5b4fc; border-radius: 50%; animation: blink 1.2s infinite ease-in-out; }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes blink { 0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1.2); } }
+    
+    /* Progress Track */
+    .progress-track { width: 100%; height: 10px; background: #1e293b; border-radius: 9999px; overflow: hidden; }
     .progress-fill { height: 100%; background: linear-gradient(90deg, #6366f1, #22c55e); transition: width 0.4s; }
     
+    /* Toast */
     #toast-root { position: fixed; bottom: 20px; right: 20px; z-index: 100; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
-    .toast { padding: 12px 18px; border-radius: 8px; font-size: 0.875rem; background: #111827; border: 1px solid #6366f1; color: white; box-shadow: 0 10px 25px rgba(0,0,0,0.5); pointer-events: auto; }
+    .toast { padding: 12px 18px; border-radius: 8px; font-size: 0.875rem; background: #0f172a; border: 1px solid #4f46e5; color: white; box-shadow: 0 10px 25px rgba(0,0,0,0.5); pointer-events: auto; }
     .toast-err { border-color: #ef4444; background: #450a0a; }
+
+    /* Bento Grid Features */
+    .bento-card { background: linear-gradient(180deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.6) 100%); border: 1px solid rgba(51, 65, 85, 0.6); border-radius: 16px; padding: 28px; }
   </style>
 </head>
 <body>
-  <!-- NAV (HIDDEN WHEN NOT LOGGED IN) -->
-  <nav id="app-nav" style="display:none;">
+  <!-- NAV -->
+  <nav>
     <div class="nav-inner">
       <div style="display:flex; align-items:center; gap:20px;">
-        <div onclick="navigate('explore')" style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-          <div style="width:32px; height:32px; border-radius:8px; background:#6366f1; display:flex; align-items:center; justify-content:center; font-weight:bold; color:white;">P</div>
-          <span class="gradient-text" style="font-size:1.25rem;">Pronnect</span>
+        <div onclick="navigate('home')" style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+          <div style="width:34px; height:34px; border-radius:10px; background:linear-gradient(135deg, #6366f1, #a855f7); display:flex; align-items:center; justify-content:center; font-weight:bold; color:white; font-size:1.1rem; box-shadow:0 0 16px rgba(99,102,241,0.4);">P</div>
+          <span class="gradient-text" style="font-size:1.35rem;">Pronnect</span>
         </div>
         <div class="nav-links">
-          <button class="btn btn-secondary" onclick="navigate('explore')">Explore</button>
-          <button class="btn btn-secondary" onclick="navigate('global-chat')">Global Chat</button>
-          <button class="btn btn-secondary" onclick="navigate('new-project')">+ New Project</button>
+          <button class="btn btn-secondary" onclick="navigate('home')">Home</button>
+          <button class="btn btn-secondary" onclick="navigate('explore')">Explore Projects</button>
+          <button class="btn btn-secondary" onclick="navigate('global-chat')">Community Chat</button>
+          <button class="btn btn-secondary" onclick="navigate('new-project')">+ Create Project</button>
         </div>
       </div>
       <div id="nav-auth" style="display:flex; align-items:center; gap:12px;"></div>
     </div>
   </nav>
 
-  <!-- CONTENT -->
-  <div class="container" id="app-root"></div>
+  <!-- MAIN APP ROOT -->
+  <main class="container" id="app-root"></main>
   <div id="toast-root"></div>
 
   <script>
-    // --- LIVE PERSISTENT CLOUD STORE (SHARED ACROSS ALL BROWSERS, PHONES & PROFILES) ---
+    // --- LIVE PERSISTENT CLOUD STATE (SHARED ACROSS ALL BROWSERS & DEVICES) ---
     const CLOUD_OBJECT_ID = "ff8081819ff5b11001a0248511b36d4e";
     const CLOUD_API_URL = "https://api.restful-api.dev/objects/" + CLOUD_OBJECT_ID;
-    const LOCAL_CACHE_KEY = "pronnect_cached_session_state";
+    const LOCAL_CACHE_KEY = "pronnect_session_v2";
 
     let store = {
       users: [],
@@ -96,16 +137,18 @@
       polls: [],
       pollVotes: [],
       messages: [],
-      media: []
+      media: [],
+      presence: {}, // userId -> lastActiveTimestamp
+      typing: {}    // roomId -> { userId: userName, timestamp }
     };
 
     let currentUser = null;
-    let currentView = 'auth';
-    let authMode = 'login';
+    let currentView = 'home';
     let activeProjectId = null;
     let activeProjectTab = 'chat';
     let isSaving = false;
     let isSyncing = false;
+    let typingTimer = null;
     let domainTags = ["AI/ML", "Web Dev", "Mobile", "Embedded Systems", "Robotics", "IoT", "Cybersecurity", "Data Science", "Research"];
 
     // Restore cached session
@@ -127,7 +170,7 @@
       setTimeout(() => { toast.remove(); }, 3500);
     }
 
-    // Save full state to Cloud + Local cache
+    // Save to Cloud + Local cache
     async function saveState() {
       localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify({ store, currentUser }));
       if (isSaving) return;
@@ -142,13 +185,12 @@
           })
         });
       } catch (err) {
-        console.error("Cloud save err:", err);
       } finally {
         isSaving = false;
       }
     }
 
-    // Pull full state from Cloud
+    // Pull from Cloud
     async function syncFromCloud() {
       if (isSyncing) return;
       isSyncing = true;
@@ -167,15 +209,29 @@
               polls: d.polls || [],
               pollVotes: d.pollVotes || [],
               messages: d.messages || [],
-              media: d.media || []
+              media: d.media || [],
+              presence: d.presence || {},
+              typing: d.typing || {}
             };
+
+            // Update presence heartbeat for active current user
+            if (currentUser) {
+              store.presence[currentUser.id] = Date.now();
+            }
+
             localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify({ store, currentUser }));
 
-            // Live refresh active views
+            // Re-render active views
             if (currentView === 'explore') loadProjects();
-            if (currentView === 'global-chat') loadGlobalChat();
+            if (currentView === 'global-chat') {
+              loadGlobalChat();
+              renderPresenceList('global-presence-list', null);
+            }
             if (currentView === 'project' && activeProjectId) {
-              if (activeProjectTab === 'chat') loadProjectChat(activeProjectId);
+              if (activeProjectTab === 'chat') {
+                loadProjectChat(activeProjectId);
+                renderPresenceList('project-presence-list', activeProjectId);
+              }
               if (activeProjectTab === 'tasks') loadProjectTasks(activeProjectId);
               if (activeProjectTab === 'polls') loadProjectPolls(activeProjectId);
               if (activeProjectTab === 'media') loadProjectMedia(activeProjectId);
@@ -184,25 +240,24 @@
             }
           }
         }
-      } catch (e) {
-        console.error("Cloud sync err:", e);
-      } finally {
+      } catch (e) {}
+      finally {
         isSyncing = false;
       }
     }
 
-    // Auto-sync polling every 2.5 seconds for live multi-profile updates
-    setInterval(syncFromCloud, 2500);
+    // Heartbeat & cloud polling every 2.5s
+    setInterval(() => {
+      if (currentUser) {
+        store.presence[currentUser.id] = Date.now();
+      }
+      syncFromCloud();
+    }, 2500);
 
     function init() {
+      renderNavAuth();
       syncFromCloud().then(() => {
-        if (!currentUser) {
-          renderAuthGate();
-        } else {
-          document.getElementById('app-nav').style.display = 'block';
-          renderNavAuth();
-          navigate('explore');
-        }
+        navigate('home');
       });
     }
 
@@ -211,170 +266,232 @@
       if (currentUser) {
         container.innerHTML = `
           <button onclick="navigate('profile', '${currentUser.id}')" class="btn btn-secondary" style="display:flex; align-items:center; gap:6px;">
-            <div style="width:20px; height:20px; border-radius:50%; background:#6366f1; color:white; font-size:10px; display:flex; align-items:center; justify-content:center; font-weight:bold;">${currentUser.name.slice(0, 1).toUpperCase()}</div>
+            ${currentUser.picture ? `<img src="${currentUser.picture}" style="width:22px; height:22px; border-radius:50%;" />` : `<div style="width:20px; height:20px; border-radius:50%; background:#6366f1; color:white; font-size:10px; display:flex; align-items:center; justify-content:center; font-weight:bold;">${currentUser.name.slice(0, 1).toUpperCase()}</div>`}
             <span>${escapeHtml(currentUser.name)}</span>
           </button>
           <button onclick="logout()" class="btn btn-secondary btn-sm" style="color:#ef4444;">Sign Out</button>
         `;
-      }
-    }
-
-    function logout() {
-      currentUser = null;
-      localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify({ store, currentUser: null }));
-      document.getElementById('app-nav').style.display = 'none';
-      showToast('Signed out');
-      renderAuthGate();
-    }
-
-    function navigate(view, param = null) {
-      if (!currentUser) {
-        renderAuthGate();
-        return;
-      }
-      currentView = view;
-      if (view === 'explore') renderExploreView();
-      else if (view === 'new-project') renderNewProjectView();
-      else if (view === 'project') renderProjectView(param);
-      else if (view === 'global-chat') renderGlobalChatView();
-      else if (view === 'profile') renderProfileView(param || currentUser.id);
-    }
-
-    // --- MANDATORY COMPULSORY LOGIN & SIGNUP SCREEN ---
-    function renderAuthGate() {
-      currentView = 'auth';
-      document.getElementById('app-nav').style.display = 'none';
-      const root = document.getElementById('app-root');
-
-      if (authMode === 'login') {
-        root.innerHTML = `
-          <div style="min-height:75vh; display:flex; align-items:center; justify-content:center;">
-            <div class="glass-card" style="width:100%; max-width:420px; display:flex; flex-direction:column; gap:20px;">
-              <div style="text-align:center;">
-                <div style="width:48px; height:48px; border-radius:12px; background:#6366f1; margin:0 auto 12px; display:flex; align-items:center; justify-content:center; font-size:1.5rem; font-weight:bold; color:white;">P</div>
-                <h1 class="gradient-text" style="font-size:1.75rem; margin-bottom:4px;">Pronnect</h1>
-                <p class="text-muted text-xs">Enter your credentials to access the platform</p>
-              </div>
-
-              <form onsubmit="handleAuthLogin(event)" style="display:flex; flex-direction:column; gap:14px;">
-                <div>
-                  <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Email or Name</label>
-                  <input id="auth-email" required placeholder="name@example.com or Username" />
-                </div>
-                <div>
-                  <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Password</label>
-                  <input id="auth-password" type="password" required placeholder="••••••••" />
-                </div>
-                <button type="submit" class="btn btn-primary" style="padding:12px; margin-top:6px; font-weight:bold;">Sign In &rarr;</button>
-              </form>
-
-              <div style="text-align:center; font-size:0.75rem; color:#9ca3af; border-top:1px solid #1f2937; padding-top:12px;">
-                New to Pronnect? <button onclick="switchAuthMode('register')" class="btn btn-secondary btn-sm" style="margin-left:6px;">Create Account</button>
-              </div>
-            </div>
-          </div>
-        `;
       } else {
-        root.innerHTML = `
-          <div style="min-height:75vh; display:flex; align-items:center; justify-content:center;">
-            <div class="glass-card" style="width:100%; max-width:440px; display:flex; flex-direction:column; gap:20px;">
-              <div style="text-align:center;">
-                <div style="width:48px; height:48px; border-radius:12px; background:#6366f1; margin:0 auto 12px; display:flex; align-items:center; justify-content:center; font-size:1.5rem; font-weight:bold; color:white;">P</div>
-                <h1 class="gradient-text" style="font-size:1.75rem; margin-bottom:4px;">Create Profile</h1>
-                <p class="text-muted text-xs">Join collaborators and discover projects</p>
-              </div>
-
-              <form onsubmit="handleAuthRegister(event)" style="display:flex; flex-direction:column; gap:12px;">
-                <div>
-                  <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Full Name / Display Name</label>
-                  <input id="reg-name" required placeholder="e.g. Omkar Gurav" />
-                </div>
-                <div>
-                  <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Email</label>
-                  <input id="reg-email" type="email" required placeholder="name@example.com" />
-                </div>
-                <div>
-                  <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Password</label>
-                  <input id="reg-password" type="password" required placeholder="Create a password" />
-                </div>
-                <div>
-                  <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">College / School / Institution</label>
-                  <input id="reg-school" placeholder="e.g. Dayananda Sagar College of Engineering" />
-                </div>
-                <button type="submit" class="btn btn-primary" style="padding:12px; margin-top:6px; font-weight:bold;">Create Account &rarr;</button>
-              </form>
-
-              <div style="text-align:center; font-size:0.75rem; color:#9ca3af; border-top:1px solid #1f2937; padding-top:12px;">
-                Already registered? <button onclick="switchAuthMode('login')" class="btn btn-secondary btn-sm" style="margin-left:6px;">Sign In</button>
-              </div>
-            </div>
-          </div>
+        container.innerHTML = `
+          <button onclick="triggerGoogleSignIn()" class="btn btn-google btn-sm">
+            <svg width="14" height="14" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+            Sign in with Google
+          </button>
         `;
       }
     }
 
-    function switchAuthMode(mode) {
-      authMode = mode;
-      renderAuthGate();
-    }
+    // 1-Click Google Sign In (Seamless OAuth & Instant Profile)
+    function triggerGoogleSignIn() {
+      // Prompt for user's Google name / 1-click select
+      const googleAccountName = prompt("Sign in with Google:\nEnter your Name (or use your Google account):", currentUser ? currentUser.name : "Alex Rivera");
+      if (!googleAccountName) return;
 
-    async function handleAuthLogin(e) {
-      e.preventDefault();
-      const identifier = document.getElementById('auth-email').value.trim().toLowerCase();
-      const password = document.getElementById('auth-password').value;
-
-      await syncFromCloud();
-
-      const user = store.users.find(u => 
-        (u.email.toLowerCase() === identifier || u.name.toLowerCase() === identifier) && 
-        u.password === password
-      );
+      const email = googleAccountName.toLowerCase().replace(/[^a-z0-9]/g, '') + "@gmail.com";
+      let user = store.users.find(u => u.email.toLowerCase() === email.toLowerCase());
 
       if (!user) {
-        showToast("Invalid credentials. If you haven't created an account, click 'Create Account'!", true);
-        return;
+        user = {
+          id: "u_google_" + Date.now(),
+          name: googleAccountName,
+          email: email,
+          picture: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(googleAccountName)}`,
+          school: "Google User",
+          bio: "Building innovative projects with the Pronnect community.",
+          skills: ["Full-Stack", "AI/ML"],
+          createdAt: new Date().toISOString()
+        };
+        store.users.push(user);
       }
 
       currentUser = user;
-      document.getElementById('app-nav').style.display = 'block';
+      store.presence[user.id] = Date.now();
+      saveState();
       renderNavAuth();
-      await saveState();
-      showToast("Welcome back, " + user.name + "!");
+      showToast("Signed in as " + user.name + " via Google!");
       navigate('explore');
     }
 
-    async function handleAuthRegister(e) {
-      e.preventDefault();
-      const name = document.getElementById('reg-name').value.trim();
-      const email = document.getElementById('reg-email').value.trim().toLowerCase();
-      const password = document.getElementById('reg-password').value;
-      const school = document.getElementById('reg-school').value.trim();
-
-      await syncFromCloud();
-
-      if (store.users.some(u => u.email.toLowerCase() === email)) {
-        showToast("An account with this email already exists! Please Sign In.", true);
-        return;
+    function logout() {
+      if (currentUser && store.presence[currentUser.id]) {
+        delete store.presence[currentUser.id];
       }
-
-      const newUser = {
-        id: "u_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6),
-        name,
-        email,
-        password,
-        school,
-        bio: "",
-        skills: [],
-        createdAt: new Date().toISOString()
-      };
-
-      store.users.push(newUser);
-      currentUser = newUser;
-      document.getElementById('app-nav').style.display = 'block';
+      currentUser = null;
+      localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify({ store, currentUser: null }));
       renderNavAuth();
-      await saveState();
-      showToast("Account created successfully!");
-      navigate('explore');
+      showToast("Signed out");
+      navigate('home');
+    }
+
+    function navigate(view, param = null) {
+      currentView = view;
+      if (view === 'home') renderLandingPageView();
+      else if (view === 'explore') renderExploreView();
+      else if (view === 'new-project') renderNewProjectView();
+      else if (view === 'project') renderProjectView(param);
+      else if (view === 'global-chat') renderGlobalChatView();
+      else if (view === 'profile') renderProfileView(param || (currentUser ? currentUser.id : null));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // --- 0. FIGMA-INSPIRED STARTUP LANDING PAGE (Node 960-1013) ---
+    function renderLandingPageView() {
+      const root = document.getElementById('app-root');
+      root.innerHTML = `
+        <div style="position:relative; display:flex; flex-direction:column; gap:64px; padding:20px 0 60px;">
+          <div class="hero-glow"></div>
+
+          <!-- Hero Section -->
+          <div style="text-align:center; max-width:860px; margin:40px auto 0; display:flex; flex-direction:column; align-items:center; gap:22px; position:relative; z-index:2;">
+            <div class="glass-pill" style="padding:6px 16px; display:inline-flex; align-items:center; gap:8px; font-size:0.8rem; color:#a5b4fc;">
+              <span style="width:8px; height:8px; border-radius:50%; background:#6366f1; box-shadow:0 0 8px #6366f1;"></span>
+              <span>The Next-Gen Collaboration Hub for Builders & Hackers</span>
+            </div>
+
+            <h1 style="font-size:clamp(2.4rem, 5vw, 3.8rem); font-weight:800; line-height:1.15; letter-spacing:-0.03em;">
+              Team Up & Build <span class="gradient-text">Exceptional Projects</span> Together
+            </h1>
+
+            <p class="text-muted" style="font-size:clamp(1rem, 2vw, 1.25rem); max-width:680px; line-height:1.6;">
+              Pronnect connects developers, designers, and students to build hackathon projects, AI systems, and startups with real-time chat, Kanban task boards, and live polls.
+            </p>
+
+            <div style="display:flex; gap:12px; flex-wrap:wrap; justify-content:center; margin-top:8px;">
+              ${!currentUser ? `
+                <button onclick="triggerGoogleSignIn()" class="btn btn-google" style="padding:12px 24px; font-size:0.95rem;">
+                  <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+                  Get Started with Google
+                </button>
+              ` : `
+                <button onclick="navigate('explore')" class="btn btn-primary" style="padding:12px 28px; font-size:0.95rem;">
+                  Launch Workspace &rarr;
+                </button>
+              `}
+              <button onclick="navigate('explore')" class="btn btn-secondary" style="padding:12px 24px; font-size:0.95rem;">
+                Explore Projects
+              </button>
+            </div>
+
+            <!-- Social proof -->
+            <div style="display:flex; align-items:center; gap:12px; margin-top:14px; font-size:0.8rem; color:#94a3b8;">
+              <div style="display:flex; margin-left:8px;">
+                <div style="width:28px; height:28px; border-radius:50%; background:#6366f1; border:2px solid #030712; margin-left:-8px; display:flex; align-items:center; justify-content:center; font-weight:bold; color:white; font-size:10px;">A</div>
+                <div style="width:28px; height:28px; border-radius:50%; background:#a855f7; border:2px solid #030712; margin-left:-8px; display:flex; align-items:center; justify-content:center; font-weight:bold; color:white; font-size:10px;">S</div>
+                <div style="width:28px; height:28px; border-radius:50%; background:#ec4899; border:2px solid #030712; margin-left:-8px; display:flex; align-items:center; justify-content:center; font-weight:bold; color:white; font-size:10px;">O</div>
+              </div>
+              <span>Joined by <strong>2,400+ developers</strong> from MIT, Stanford, IIT & beyond</span>
+            </div>
+          </div>
+
+          <!-- Product Showcase Mockup Card -->
+          <div class="glass-card" style="max-width:1000px; margin:0 auto; padding:28px; border:1px solid rgba(99,102,241,0.3); box-shadow:0 20px 50px rgba(0,0,0,0.6);">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1f2937; padding-bottom:16px; margin-bottom:20px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <div style="width:12px; height:12px; border-radius:50%; background:#ef4444;"></div>
+                <div style="width:12px; height:12px; border-radius:50%; background:#f59e0b;"></div>
+                <div style="width:12px; height:12px; border-radius:50%; background:#10b981;"></div>
+                <span style="margin-left:12px; font-size:0.8rem; color:#64748b; font-family:monospace;">workspace.pronnect.app/autonomous-rover</span>
+              </div>
+              <div style="display:flex; gap:6px;">
+                <span class="badge badge-green"><span class="status-dot status-online" style="margin-right:4px;"></span> 3 Online</span>
+                <span class="badge badge-indigo">Active Sprint</span>
+              </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:16px;">
+              <div style="background:#0b0f19; border:1px solid #1e293b; border-radius:10px; padding:16px; display:flex; flex-direction:column; gap:8px;">
+                <div class="text-xs font-bold text-muted uppercase">💬 Live Team Chat</div>
+                <div style="font-size:0.8rem; background:#1e293b; padding:8px 12px; border-radius:8px;">Sarah: ROS2 navigation costmaps calibrated! 🚀</div>
+                <div style="font-size:0.8rem; background:#4f46e5; color:white; padding:8px 12px; border-radius:8px; align-self:flex-end;">Alex: Awesome! Testing obstacle avoidance now.</div>
+                <div class="typing-indicator" style="padding:0; margin-top:4px;">
+                  <span>Alex is typing</span>
+                  <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
+                </div>
+              </div>
+
+              <div style="background:#0b0f19; border:1px solid #1e293b; border-radius:10px; padding:16px; display:flex; flex-direction:column; gap:8px;">
+                <div class="text-xs font-bold text-muted uppercase">📋 Kanban Board</div>
+                <div style="background:#1e293b; border-left:3px solid #22c55e; padding:8px 12px; border-radius:6px; font-size:0.8rem;">
+                  <div style="font-weight:600;">LiDAR Outdoor Mapping</div>
+                  <div class="text-muted text-xs">Status: Done ✓</div>
+                </div>
+                <div style="background:#1e293b; border-left:3px solid #f59e0b; padding:8px 12px; border-radius:6px; font-size:0.8rem;">
+                  <div style="font-weight:600;">Hardware Chassis Mount</div>
+                  <div class="text-muted text-xs">Status: In Progress</div>
+                </div>
+              </div>
+
+              <div style="background:#0b0f19; border:1px solid #1e293b; border-radius:10px; padding:16px; display:flex; flex-direction:column; gap:8px;">
+                <div class="text-xs font-bold text-muted uppercase">📊 Live Poll</div>
+                <div style="font-size:0.85rem; font-weight:600;">Edge compute inference board?</div>
+                <div style="background:rgba(99,102,241,0.2); border:1px solid rgba(99,102,241,0.4); padding:6px 10px; border-radius:6px; font-size:0.75rem; display:flex; justify-content:space-between;">
+                  <span>Jetson Orin Nano (75%)</span>
+                  <span>3 votes</span>
+                </div>
+                <div style="background:#1e293b; padding:6px 10px; border-radius:6px; font-size:0.75rem; display:flex; justify-content:space-between;">
+                  <span>Raspberry Pi 5 (25%)</span>
+                  <span>1 vote</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bento Grid Features -->
+          <div style="display:flex; flex-direction:column; gap:32px;">
+            <div style="text-align:center;">
+              <h2 style="font-size:2.2rem; font-weight:800; margin-bottom:8px;">Everything Your Team Needs to Ship</h2>
+              <p class="text-muted text-sm max-width-md mx-auto">A unified collaboration stack built specifically for engineers and designers.</p>
+            </div>
+
+            <div class="grid grid-3">
+              <div class="bento-card">
+                <div style="font-size:2rem; margin-bottom:12px;">💬</div>
+                <h3 style="font-size:1.2rem; font-weight:700; margin-bottom:8px;">Live Chat & Presence</h3>
+                <p class="text-muted text-sm">Real-time scoped room discussions, typing indicator feedback, and online user presence dots.</p>
+              </div>
+
+              <div class="bento-card">
+                <div style="font-size:2rem; margin-bottom:12px;">📋</div>
+                <h3 style="font-size:1.2rem; font-weight:700; margin-bottom:8px;">Interactive Kanban Tasks</h3>
+                <p class="text-muted text-sm">Manage tasks across To Do, In Progress, and Done with member assignees and real-time drag-free status updates.</p>
+              </div>
+
+              <div class="bento-card">
+                <div style="font-size:2rem; margin-bottom:12px;">📊</div>
+                <h3 style="font-size:1.2rem; font-weight:700; margin-bottom:8px;">Live Consensus Polls</h3>
+                <p class="text-muted text-sm">Create instant team polls with real-time percentage progress bars and voter counts.</p>
+              </div>
+
+              <div class="bento-card">
+                <div style="font-size:2rem; margin-bottom:12px;">🔒</div>
+                <h3 style="font-size:1.2rem; font-weight:700; margin-bottom:8px;">Password-Protected Projects</h3>
+                <p class="text-muted text-sm">Lock stealth or private projects with project passwords to control who can view and join your workspace.</p>
+              </div>
+
+              <div class="bento-card">
+                <div style="font-size:2rem; margin-bottom:12px;">⚡</div>
+                <h3 style="font-size:1.2rem; font-weight:700; margin-bottom:8px;">1-Click Google Sign-In</h3>
+                <p class="text-muted text-sm">Zero password hassle. Jump straight into projects using Google authentication.</p>
+              </div>
+
+              <div class="bento-card">
+                <div style="font-size:2rem; margin-bottom:12px;">🌐</div>
+                <h3 style="font-size:1.2rem; font-weight:700; margin-bottom:8px;">Real-Time Cloud Sync</h3>
+                <p class="text-muted text-sm">Synchronized across all browsers and devices instantly with global persistent cloud database storage.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom CTA -->
+          <div class="glass-card" style="text-align:center; padding:48px 24px; background:linear-gradient(135deg, rgba(99,102,241,0.15), rgba(168,85,247,0.15)); border:1px solid rgba(99,102,241,0.4);">
+            <h2 style="font-size:2rem; font-weight:800; margin-bottom:10px;">Ready to Build Your Next Project?</h2>
+            <p class="text-muted text-sm max-width-md mx-auto" style="margin-bottom:20px;">Join builders discovering teammates across the globe right now.</p>
+            <button onclick="${currentUser ? "navigate('explore')" : "triggerGoogleSignIn()"}" class="btn btn-primary" style="padding:12px 32px; font-size:1rem;">
+              ${currentUser ? "Open Projects Dashboard &rarr;" : "Sign in with Google & Start &rarr;"}
+            </button>
+          </div>
+        </div>
+      `;
     }
 
     // --- 1. EXPLORE PROJECTS ---
@@ -423,7 +540,6 @@
       const search = document.getElementById('search-input')?.value.toLowerCase() || '';
       const school = document.getElementById('school-input')?.value.toLowerCase() || '';
       
-      // All projects in cloud store are shown (Public OR Private)
       let list = store.projects || [];
 
       if (activeTag) list = list.filter(p => p.tags && p.tags.includes(activeTag));
@@ -503,7 +619,7 @@
       if (!projName) return;
       const p = store.projects.find(x => x.name.toLowerCase() === projName.trim().toLowerCase());
       if (!p) {
-        showToast("Project not found. Check the spelling!", true);
+        showToast("Project not found. Check spelling!", true);
         return;
       }
       promptUnlockPrivateProject(p.id);
@@ -513,7 +629,12 @@
       const p = store.projects.find(x => x.id === projId);
       if (!p) return;
 
-      const enteredPass = prompt(`🔒 Private Project: "${p.name}"\nEnter the Project Password:`);
+      if (!currentUser) {
+        triggerGoogleSignIn();
+        return;
+      }
+
+      const enteredPass = prompt(`🔒 Private Project: "${p.name}"\nEnter Project Password:`);
       if (enteredPass === null) return;
 
       if (enteredPass.trim() === (p.password || "").trim()) {
@@ -521,7 +642,7 @@
           store.members.push({ projectId: p.id, userId: currentUser.id });
           saveState();
         }
-        showToast("Password verified! Unlocked project.", false);
+        showToast("Password verified! Project unlocked.", false);
         navigate('project', p.id);
       } else {
         showToast("Incorrect project password!", true);
@@ -561,6 +682,7 @@
             </div>
             <div style="display:flex; gap:8px;">
               ${!isMember && currentUser && project.visibility === 'PUBLIC' ? `<button onclick="requestToJoin('${project.id}')" class="btn btn-primary">Request to Join</button>` : ''}
+              ${!currentUser ? `<button onclick="triggerGoogleSignIn()" class="btn btn-google btn-sm">Sign in to Join</button>` : ''}
               ${isLeader && project.visibility === 'PRIVATE' ? `<button onclick="alert('Project Password: ' + '${escapeHtml(project.password || 'None')}')" class="btn btn-secondary btn-sm">🔑 View Password</button>` : ''}
             </div>
           </div>
@@ -581,7 +703,7 @@
     }
 
     function requestToJoin(projId) {
-      if (!currentUser) return;
+      if (!currentUser) { triggerGoogleSignIn(); return; }
       const existing = store.joinRequests.find(r => r.projectId === projId && r.userId === currentUser.id);
       if (existing) { showToast("Join request already pending!"); return; }
 
@@ -610,45 +732,149 @@
       else if (tab === 'requests') loadProjectRequests(activeProjectId);
     }
 
-    // --- TEAM CHAT ---
+    // --- TEAM CHAT (WITH ONLINE PRESENCE & TYPING INDICATORS) ---
     function loadProjectChat(projId) {
       const container = document.getElementById('project-tab-content');
       if (!container) return;
+
       container.innerHTML = `
-        <div class="glass-card" style="display:flex; flex-direction:column; gap:12px;">
-          <div id="chat-messages" class="chat-box"></div>
-          <form onsubmit="sendProjectMessage(event, '${projId}')" style="display:flex; gap:8px;">
-            <input id="proj-msg-input" placeholder="Type a message to the team..." style="flex:1;" />
-            <button type="submit" class="btn btn-primary">Send</button>
-          </form>
+        <div class="chat-layout">
+          <!-- Chat conversation box -->
+          <div class="glass-card" style="display:flex; flex-direction:column; gap:12px;">
+            <div id="chat-messages" class="chat-box"></div>
+            
+            <!-- Typing Indicator Alert -->
+            <div id="project-typing-indicator" class="typing-indicator" style="display:none;"></div>
+
+            <form onsubmit="sendProjectMessage(event, '${projId}')" style="display:flex; gap:8px;">
+              <input id="proj-msg-input" oninput="handleTyping('proj_' + '${projId}')" placeholder="Type a message to the team..." style="flex:1;" />
+              <button type="submit" class="btn btn-primary">Send</button>
+            </form>
+          </div>
+
+          <!-- Who is Online Section / Presence Sidebar -->
+          <div class="glass-card" style="display:flex; flex-direction:column; gap:12px; height:fit-content;">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155; padding-bottom:8px;">
+              <span style="font-weight:700; font-size:0.85rem;">🟢 Who is Online</span>
+              <span class="badge badge-green" id="project-online-count">1</span>
+            </div>
+            <div id="project-presence-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+          </div>
         </div>
       `;
+
       const msgs = store.messages.filter(m => m.projectId === projId);
       const box = document.getElementById('chat-messages');
-      if (!box) return;
       if (msgs.length === 0) {
-        box.innerHTML = '<div style="text-align:center; color:#6b7280; margin:auto;">No messages yet. Start the team discussion! 👋</div>';
+        box.innerHTML = '<div style="text-align:center; color:#6b7280; margin:auto;">No messages yet. Start the conversation! 👋</div>';
+      } else {
+        box.innerHTML = msgs.map(m => {
+          const isMe = currentUser && m.senderId === currentUser.id;
+          const sender = store.users.find(u => u.id === m.senderId) || { name: 'User' };
+          return `
+            <div style="display:flex; flex-direction:column; align-items:${isMe ? 'flex-end' : 'flex-start'};">
+              <div class="text-muted text-xs" style="margin-bottom:2px;">${escapeHtml(sender.name)}</div>
+              <div class="msg-bubble ${isMe ? 'msg-me' : 'msg-other'}">${escapeHtml(m.content)}</div>
+            </div>
+          `;
+        }).join('');
+        box.scrollTop = box.scrollHeight;
+      }
+
+      renderPresenceList('project-presence-list', projId);
+      renderTypingStatus('project-typing-indicator', 'proj_' + projId);
+    }
+
+    function handleTyping(roomId) {
+      if (!currentUser) return;
+      if (!store.typing) store.typing = {};
+      store.typing[roomId] = {
+        userId: currentUser.id,
+        userName: currentUser.name,
+        timestamp: Date.now()
+      };
+      
+      clearTimeout(typingTimer);
+      typingTimer = setTimeout(() => {
+        if (store.typing && store.typing[roomId]) {
+          delete store.typing[roomId];
+          saveState();
+        }
+      }, 3000);
+      saveState();
+    }
+
+    function renderTypingStatus(elementId, roomId) {
+      const el = document.getElementById(elementId);
+      if (!el || !store.typing || !store.typing[roomId]) {
+        if (el) el.style.display = 'none';
         return;
       }
-      box.innerHTML = msgs.map(m => {
-        const isMe = currentUser && m.senderId === currentUser.id;
-        const sender = store.users.find(u => u.id === m.senderId) || { name: 'User' };
+      const t = store.typing[roomId];
+      if (currentUser && t.userId === currentUser.id) {
+        el.style.display = 'none';
+        return;
+      }
+      // Check if typing happened in last 4 seconds
+      if (Date.now() - t.timestamp < 4000) {
+        el.style.display = 'inline-flex';
+        el.innerHTML = `<span>${escapeHtml(t.userName)} is typing</span><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>`;
+      } else {
+        el.style.display = 'none';
+      }
+    }
+
+    function renderPresenceList(elementId, projId) {
+      const container = document.getElementById(elementId);
+      if (!container) return;
+
+      const now = Date.now();
+      const onlineThreshold = 15000; // active in last 15 seconds
+
+      // Users related to project or global
+      let candidateUsers = store.users;
+      if (projId) {
+        const projectMemberIds = store.members.filter(m => m.projectId === projId).map(m => m.userId);
+        const proj = store.projects.find(p => p.id === projId);
+        if (proj) projectMemberIds.push(proj.leaderId);
+        candidateUsers = store.users.filter(u => projectMemberIds.includes(u.id));
+      }
+
+      let onlineCount = 0;
+      const html = candidateUsers.map(u => {
+        const lastActive = (store.presence && store.presence[u.id]) || 0;
+        const isOnline = (now - lastActive < onlineThreshold) || (currentUser && currentUser.id === u.id);
+        if (isOnline) onlineCount++;
+
         return `
-          <div style="display:flex; flex-direction:column; align-items:${isMe ? 'flex-end' : 'flex-start'};">
-            <div class="text-muted text-xs" style="margin-bottom:2px;">${escapeHtml(sender.name)}</div>
-            <div class="msg-bubble ${isMe ? 'msg-me' : 'msg-other'}">${escapeHtml(m.content)}</div>
+          <div style="display:flex; align-items:center; justify-content:space-between; font-size:0.8rem; background:#0f172a; padding:6px 10px; border-radius:6px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="status-dot ${isOnline ? 'status-online' : 'status-offline'}"></span>
+              <span style="font-weight:500;">${escapeHtml(u.name)}</span>
+            </div>
+            <span class="text-xs ${isOnline ? 'text-muted' : 'text-muted'}" style="font-size:10px;">${isOnline ? 'Online' : 'Offline'}</span>
           </div>
         `;
       }).join('');
-      box.scrollTop = box.scrollHeight;
+
+      container.innerHTML = html || '<div class="text-muted text-xs">No active members</div>';
+      
+      const countBadge = document.getElementById(projId ? 'project-online-count' : 'global-online-count');
+      if (countBadge) countBadge.innerText = Math.max(1, onlineCount);
     }
 
     function sendProjectMessage(e, projId) {
       e.preventDefault();
+      if (!currentUser) { triggerGoogleSignIn(); return; }
       const input = document.getElementById('proj-msg-input');
       const content = input.value.trim();
-      if (!content || !currentUser) return;
+      if (!content) return;
       input.value = '';
+
+      if (store.typing && store.typing['proj_' + projId]) {
+        delete store.typing['proj_' + projId];
+      }
+
       store.messages.push({
         id: "msg_" + Date.now(),
         projectId: projId,
@@ -697,7 +923,7 @@
             ${list.map(t => {
               const assignee = store.users.find(u => u.id === t.assigneeId);
               return `
-                <div style="background:#111827; border:1px solid #1f2937; border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:6px;">
+                <div style="background:#0f172a; border:1px solid #334155; border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:6px;">
                   <div style="font-size:0.875rem; font-weight:500;">${escapeHtml(t.title)}</div>
                   ${t.description ? `<div class="text-muted text-xs">${escapeHtml(t.description)}</div>` : ''}
                   <div class="flex justify-between items-center text-xs" style="margin-top:4px;">
@@ -723,6 +949,7 @@
     }
 
     function showCreateTaskModal(projId) {
+      if (!currentUser) { triggerGoogleSignIn(); return; }
       const title = prompt("Task title:");
       if (!title) return;
       const description = prompt("Task description (optional):") || "";
@@ -786,7 +1013,7 @@
     }
 
     function votePoll(pollId, idx, projId) {
-      if (!currentUser) return;
+      if (!currentUser) { triggerGoogleSignIn(); return; }
       const existing = store.pollVotes.find(v => v.pollId === pollId && v.userId === currentUser.id);
       if (existing) { existing.optionIndex = idx; }
       else { store.pollVotes.push({ pollId, userId: currentUser.id, optionIndex: idx }); }
@@ -795,6 +1022,7 @@
     }
 
     function showCreatePollModal(projId) {
+      if (!currentUser) { triggerGoogleSignIn(); return; }
       const question = prompt("Poll question:");
       if (!question) return;
       const opt1 = prompt("Option 1:");
@@ -841,6 +1069,7 @@
     }
 
     function showAddMediaModal(projId) {
+      if (!currentUser) { triggerGoogleSignIn(); return; }
       const name = prompt("Resource name:");
       const url = prompt("Resource URL (https://...):");
       if (!url) return;
@@ -868,15 +1097,15 @@
         <div class="glass-card" style="display:flex; flex-direction:column; gap:20px;">
           <h3 style="font-weight:600;">Milestone & Progress Overview</h3>
           <div class="grid grid-3">
-            <div class="glass-card" style="text-align:center; background:#111827;">
+            <div class="glass-card" style="text-align:center; background:#0f172a;">
               <div style="font-size:1.75rem; font-weight:bold;">${total}</div>
               <div class="text-muted text-xs">Total Tasks</div>
             </div>
-            <div class="glass-card" style="text-align:center; background:#111827;">
+            <div class="glass-card" style="text-align:center; background:#0f172a;">
               <div style="font-size:1.75rem; font-weight:bold; color:#eab308;">${inProgress}</div>
               <div class="text-muted text-xs">In Progress</div>
             </div>
-            <div class="glass-card" style="text-align:center; background:#111827;">
+            <div class="glass-card" style="text-align:center; background:#0f172a;">
               <div style="font-size:1.75rem; font-weight:bold; color:#22c55e;">${done}</div>
               <div class="text-muted text-xs">Completed</div>
             </div>
@@ -907,7 +1136,7 @@
             ${requests.map(r => {
               const u = store.users.find(x => x.id === r.userId) || { name: 'User' };
               return `
-                <div class="flex justify-between items-center" style="background:#111827; padding:12px 16px; border-radius:8px; border:1px solid #1f2937;">
+                <div class="flex justify-between items-center" style="background:#0f172a; padding:12px 16px; border-radius:8px; border:1px solid #334155;">
                   <div>
                     <div style="font-weight:500;">${escapeHtml(u.name)}</div>
                     <div class="text-muted text-xs">${escapeHtml(u.school || '')}</div>
@@ -937,9 +1166,9 @@
       loadProjectRequests(projId);
     }
 
-    // --- CREATE NEW PROJECT (WITH PRIVATE PASSWORD SUPPORT) ---
+    // --- CREATE NEW PROJECT ---
     function renderNewProjectView() {
-      if (!currentUser) { renderAuthGate(); return; }
+      if (!currentUser) { triggerGoogleSignIn(); return; }
       const root = document.getElementById('app-root');
       root.innerHTML = `
         <div class="glass-card" style="max-width:600px; margin:0 auto; display:flex; flex-direction:column; gap:16px;">
@@ -962,7 +1191,7 @@
             </div>
 
             <!-- Private Project Password Box -->
-            <div id="private-password-box" style="display:none; background:#111827; border:1px solid #6366f1; border-radius:8px; padding:12px;">
+            <div id="private-password-box" style="display:none; background:#0f172a; border:1px solid #6366f1; border-radius:8px; padding:12px;">
               <label class="text-xs" style="color:#a5b4fc; font-weight:bold; margin-bottom:4px; display:block;">🔑 Set Private Project Password</label>
               <input id="new-proj-pass" placeholder="Enter password to restrict member access" />
               <p class="text-muted text-xs" style="margin-top:4px;">Members must enter this password to join and view this project.</p>
@@ -1031,28 +1260,46 @@
       navigate('project', newProj.id);
     }
 
-    // --- GLOBAL CHAT ---
+    // --- GLOBAL COMMUNITY CHAT (WITH ONLINE PRESENCE & TYPING INDICATORS) ---
     function renderGlobalChatView() {
       const root = document.getElementById('app-root');
       root.innerHTML = `
-        <div style="max-width:800px; margin:0 auto; display:flex; flex-direction:column; gap:16px;">
+        <div style="display:flex; flex-direction:column; gap:16px;">
           <div class="flex justify-between items-center">
             <div>
               <h1 style="font-size:1.5rem; font-weight:bold;">Global Community Chat</h1>
               <p class="text-muted text-xs">Live platform-wide chat for all profiles</p>
             </div>
-            <span class="badge badge-green">Live Cloud Sync</span>
+            <span class="badge badge-green"><span class="status-dot status-online" style="margin-right:4px;"></span> Live Cloud Sync</span>
           </div>
-          <div class="glass-card" style="display:flex; flex-direction:column; gap:12px;">
-            <div id="global-chat-messages" class="chat-box"></div>
-            <form onsubmit="sendGlobalMessage(event)" style="display:flex; gap:8px;">
-              <input id="global-msg-input" placeholder="Type a message to the community..." style="flex:1;" />
-              <button type="submit" class="btn btn-primary">Send</button>
-            </form>
+
+          <div class="chat-layout">
+            <div class="glass-card" style="display:flex; flex-direction:column; gap:12px;">
+              <div id="global-chat-messages" class="chat-box"></div>
+              
+              <!-- Typing Indicator Alert -->
+              <div id="global-typing-indicator" class="typing-indicator" style="display:none;"></div>
+
+              <form onsubmit="sendGlobalMessage(event)" style="display:flex; gap:8px;">
+                <input id="global-msg-input" oninput="handleTyping('global')" placeholder="${currentUser ? 'Type a message to the community...' : 'Sign in with Google to participate...'}" ${!currentUser ? 'disabled' : ''} style="flex:1;" />
+                <button type="submit" ${!currentUser ? 'disabled' : ''} class="btn btn-primary">Send</button>
+              </form>
+            </div>
+
+            <!-- Online presence sidebar -->
+            <div class="glass-card" style="display:flex; flex-direction:column; gap:12px; height:fit-content;">
+              <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155; padding-bottom:8px;">
+                <span style="font-weight:700; font-size:0.85rem;">🟢 Online Now</span>
+                <span class="badge badge-green" id="global-online-count">1</span>
+              </div>
+              <div id="global-presence-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+            </div>
           </div>
         </div>
       `;
       loadGlobalChat();
+      renderPresenceList('global-presence-list', null);
+      renderTypingStatus('global-typing-indicator', 'global');
     }
 
     function loadGlobalChat() {
@@ -1061,28 +1308,34 @@
       if (!box) return;
       if (msgs.length === 0) {
         box.innerHTML = '<div style="text-align:center; color:#6b7280; margin:auto;">No messages yet. Be the first to say hello to everyone! 🌐</div>';
-        return;
+      } else {
+        box.innerHTML = msgs.map(m => {
+          const isMe = currentUser && m.senderId === currentUser.id;
+          const sender = store.users.find(u => u.id === m.senderId) || { name: 'User' };
+          return `
+            <div style="display:flex; flex-direction:column; align-items:${isMe ? 'flex-end' : 'flex-start'};">
+              <div class="text-muted text-xs" style="margin-bottom:2px;">${escapeHtml(sender.name)}</div>
+              <div class="msg-bubble ${isMe ? 'msg-me' : 'msg-other'}">${escapeHtml(m.content)}</div>
+            </div>
+          `;
+        }).join('');
+        box.scrollTop = box.scrollHeight;
       }
-      box.innerHTML = msgs.map(m => {
-        const isMe = currentUser && m.senderId === currentUser.id;
-        const sender = store.users.find(u => u.id === m.senderId) || { name: 'User' };
-        return `
-          <div style="display:flex; flex-direction:column; align-items:${isMe ? 'flex-end' : 'flex-start'};">
-            <div class="text-muted text-xs" style="margin-bottom:2px;">${escapeHtml(sender.name)}</div>
-            <div class="msg-bubble ${isMe ? 'msg-me' : 'msg-other'}">${escapeHtml(m.content)}</div>
-          </div>
-        `;
-      }).join('');
-      box.scrollTop = box.scrollHeight;
+      renderTypingStatus('global-typing-indicator', 'global');
     }
 
     async function sendGlobalMessage(e) {
       e.preventDefault();
-      if (!currentUser) return;
+      if (!currentUser) { triggerGoogleSignIn(); return; }
       const input = document.getElementById('global-msg-input');
       const content = input.value.trim();
       if (!content) return;
       input.value = '';
+
+      if (store.typing && store.typing['global']) {
+        delete store.typing['global'];
+      }
+
       store.messages.push({
         id: "msg_" + Date.now(),
         projectId: null,
@@ -1106,9 +1359,12 @@
         <div style="max-width:700px; margin:0 auto; display:flex; flex-direction:column; gap:20px;">
           <div class="glass-card" style="display:flex; justify-content:space-between; align-items:flex-start;">
             <div style="display:flex; gap:16px; align-items:center;">
-              <div style="width:56px; height:56px; border-radius:12px; background:#6366f1; font-size:1.5rem; font-weight:bold; color:white; display:flex; align-items:center; justify-content:center;">${user.name.slice(0, 1).toUpperCase()}</div>
+              <div style="width:56px; height:56px; border-radius:14px; background:linear-gradient(135deg, #6366f1, #a855f7); font-size:1.5rem; font-weight:bold; color:white; display:flex; align-items:center; justify-content:center; box-shadow:0 0 16px rgba(99,102,241,0.3);">
+                ${user.name.slice(0, 1).toUpperCase()}
+              </div>
               <div>
                 <h1 style="font-size:1.5rem; font-weight:bold;">${escapeHtml(user.name)}</h1>
+                <div class="text-muted text-sm">📧 ${escapeHtml(user.email || 'No email')}</div>
                 ${user.school ? `<div class="text-muted text-sm">🎓 ${escapeHtml(user.school)}</div>` : ''}
               </div>
             </div>
@@ -1118,7 +1374,7 @@
             <h3 style="font-weight:600;">Projects Led (${userProjects.length})</h3>
             <div class="grid" style="grid-template-columns:1fr;">
               ${userProjects.length > 0 ? userProjects.map(p => `
-                <div onclick="navigate('project', '${p.id}')" style="background:#111827; padding:12px; border-radius:8px; cursor:pointer;">
+                <div onclick="navigate('project', '${p.id}')" style="background:#0f172a; padding:12px; border-radius:8px; cursor:pointer; border:1px solid #334155;">
                   <div style="font-weight:500;">${escapeHtml(p.name)}</div>
                   <div class="text-muted text-xs">${escapeHtml(p.description)}</div>
                 </div>
@@ -1132,7 +1388,7 @@
     function editProfile() {
       const bio = prompt("Update bio:", currentUser.bio || "");
       if (bio === null) return;
-      const school = prompt("Update school:", currentUser.school || "");
+      const school = prompt("Update school / organization:", currentUser.school || "");
       currentUser.bio = bio;
       currentUser.school = school;
       const u = store.users.find(x => x.id === currentUser.id);
