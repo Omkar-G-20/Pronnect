@@ -1347,54 +1347,318 @@
       loadGlobalChat();
     }
 
-    // --- PROFILE VIEW ---
+    // --- FIGMA-INSPIRED USER PROFILE (Node 612-88) ---
+    let activeProfileTab = 'overview';
+
     function renderProfileView(userId) {
       const root = document.getElementById('app-root');
       const user = store.users.find(u => u.id === userId) || currentUser;
-      if (!user) { root.innerHTML = '<div style="text-align:center; padding:40px;">User not found</div>'; return; }
+      if (!user) {
+        root.innerHTML = '<div class="glass-card" style="text-align:center; padding:60px 20px;"><div style="font-size:2rem;">👤</div><h3 style="margin-top:8px;">User not found</h3><button onclick="navigate(\'home\')" class="btn btn-secondary" style="margin-top:12px;">Return Home</button></div>';
+        return;
+      }
+
       const isMe = currentUser && currentUser.id === user.id;
-      const userProjects = store.projects.filter(p => p.leaderId === user.id);
+      const projectsLed = store.projects.filter(p => p.leaderId === user.id);
+      const memberProjects = store.projects.filter(p => p.leaderId !== user.id && store.members.some(m => m.projectId === p.id && m.userId === user.id));
+      const totalProjects = projectsLed.length + memberProjects.length;
+      
+      const userTasksDone = store.tasks.filter(t => t.assigneeId === user.id && t.status === 'DONE').length;
+      const reputationScore = Math.min(99, 20 + (projectsLed.length * 15) + (userTasksDone * 5));
+
+      const avatarLetter = (user.name || 'U').slice(0, 1).toUpperCase();
+      const skills = user.skills && user.skills.length > 0 ? user.skills : ['Full-Stack', 'UI/UX', 'AI/ML', 'Problem Solving'];
+      const headline = user.headline || (user.school ? `Builder & Student at ${user.school}` : 'Collaborator & Project Builder');
+      const bio = user.bio || 'Passionate about assembling high-performance teams, shipping hackathon projects, and building innovative software.';
 
       root.innerHTML = `
-        <div style="max-width:700px; margin:0 auto; display:flex; flex-direction:column; gap:20px;">
-          <div class="glass-card" style="display:flex; justify-content:space-between; align-items:flex-start;">
-            <div style="display:flex; gap:16px; align-items:center;">
-              <div style="width:56px; height:56px; border-radius:14px; background:linear-gradient(135deg, #6366f1, #a855f7); font-size:1.5rem; font-weight:bold; color:white; display:flex; align-items:center; justify-content:center; box-shadow:0 0 16px rgba(99,102,241,0.3);">
-                ${user.name.slice(0, 1).toUpperCase()}
-              </div>
-              <div>
-                <h1 style="font-size:1.5rem; font-weight:bold;">${escapeHtml(user.name)}</h1>
-                <div class="text-muted text-sm">📧 ${escapeHtml(user.email || 'No email')}</div>
-                ${user.school ? `<div class="text-muted text-sm">🎓 ${escapeHtml(user.school)}</div>` : ''}
+        <div style="max-width:960px; margin:0 auto; display:flex; flex-direction:column; gap:24px; position:relative;">
+          
+          <!-- Top Profile Banner & Card -->
+          <div class="glass-card" style="padding:0; overflow:hidden; border:1px solid rgba(99,102,241,0.3); position:relative;">
+            <!-- Mesh Header Cover -->
+            <div style="height:160px; background:linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4338ca 70%, #6366f1 100%); position:relative;">
+              <div style="position:absolute; inset:0; background:radial-gradient(circle at 80% 20%, rgba(236,72,153,0.35) 0%, transparent 60%);"></div>
+              <div style="position:absolute; bottom:12px; right:16px; display:flex; gap:8px;">
+                ${isMe ? `
+                  <button onclick="switchProfileTab('edit')" class="btn btn-secondary btn-sm" style="background:rgba(17,24,39,0.7); backdrop-filter:blur(8px);">
+                    ✏️ Edit Profile
+                  </button>
+                ` : `
+                  <button onclick="copyProfileLink('${user.id}')" class="btn btn-secondary btn-sm" style="background:rgba(17,24,39,0.7); backdrop-filter:blur(8px);">
+                    🔗 Share Profile
+                  </button>
+                `}
               </div>
             </div>
-            ${isMe ? `<button onclick="editProfile()" class="btn btn-secondary btn-sm">Edit</button>` : ''}
-          </div>
-          <div class="glass-card" style="display:flex; flex-direction:column; gap:12px;">
-            <h3 style="font-weight:600;">Projects Led (${userProjects.length})</h3>
-            <div class="grid" style="grid-template-columns:1fr;">
-              ${userProjects.length > 0 ? userProjects.map(p => `
-                <div onclick="navigate('project', '${p.id}')" style="background:#0f172a; padding:12px; border-radius:8px; cursor:pointer; border:1px solid #334155;">
-                  <div style="font-weight:500;">${escapeHtml(p.name)}</div>
-                  <div class="text-muted text-xs">${escapeHtml(p.description)}</div>
+
+            <!-- Profile Info Bar -->
+            <div style="padding:0 28px 24px; display:flex; flex-direction:column; gap:16px;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:-48px; flex-wrap:wrap; gap:16px;">
+                
+                <!-- Avatar & Identity -->
+                <div style="display:flex; align-items:flex-end; gap:16px;">
+                  <div style="position:relative;">
+                    ${user.picture ? `
+                      <img src="${user.picture}" style="width:96px; height:96px; border-radius:24px; border:4px solid #0b0f19; background:#1e293b; object-fit:cover; box-shadow:0 10px 25px rgba(0,0,0,0.5);" />
+                    ` : `
+                      <div style="width:96px; height:96px; border-radius:24px; border:4px solid #0b0f19; background:linear-gradient(135deg, #6366f1, #a855f7); color:white; font-size:2.2rem; font-weight:bold; display:flex; align-items:center; justify-content:center; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+                        ${avatarLetter}
+                      </div>
+                    `}
+                    <div class="status-dot status-online" style="position:absolute; bottom:4px; right:4px; width:14px; height:14px; border:2px solid #0b0f19;" title="Online"></div>
+                  </div>
+
+                  <div style="margin-bottom:6px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <h1 style="font-size:1.6rem; font-weight:800; color:#f8fafc;">${escapeHtml(user.name)}</h1>
+                      <span class="badge badge-green" style="font-size:10px;">✓ Verified Collaborator</span>
+                    </div>
+                    <p class="text-muted text-sm" style="margin-top:2px;">${escapeHtml(headline)}</p>
+                    <div style="display:flex; align-items:center; gap:12px; margin-top:4px; font-size:0.8rem; color:#94a3b8;">
+                      <span>📧 ${escapeHtml(user.email || 'Google Connected')}</span>
+                      ${user.school ? `<span>🎓 ${escapeHtml(user.school)}</span>` : ''}
+                    </div>
+                  </div>
                 </div>
-              `).join('') : '<div class="text-muted text-xs">No projects created yet.</div>'}
+
+                <!-- Google Connected Pill -->
+                <div style="margin-bottom:8px;">
+                  <div class="glass-pill" style="padding:6px 14px; display:flex; align-items:center; gap:8px; font-size:0.75rem; color:#cbd5e1;">
+                    <svg width="14" height="14" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+                    <span>Google Account Active</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Stats Ribbon (Figma 4-Box Metric Layout) -->
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:12px; margin-top:10px;">
+                <div style="background:#0f172a; border:1px solid #1e293b; border-radius:10px; padding:12px 16px; text-align:center;">
+                  <div style="font-size:1.4rem; font-weight:800; color:#f8fafc;">${projectsLed.length}</div>
+                  <div class="text-muted text-xs">Projects Led</div>
+                </div>
+                <div style="background:#0f172a; border:1px solid #1e293b; border-radius:10px; padding:12px 16px; text-align:center;">
+                  <div style="font-size:1.4rem; font-weight:800; color:#818cf8;">${totalProjects}</div>
+                  <div class="text-muted text-xs">Total Workspaces</div>
+                </div>
+                <div style="background:#0f172a; border:1px solid #1e293b; border-radius:10px; padding:12px 16px; text-align:center;">
+                  <div style="font-size:1.4rem; font-weight:800; color:#34d399;">${userTasksDone}</div>
+                  <div class="text-muted text-xs">Tasks Completed</div>
+                </div>
+                <div style="background:#0f172a; border:1px solid #1e293b; border-radius:10px; padding:12px 16px; text-align:center;">
+                  <div style="font-size:1.4rem; font-weight:800; color:#f59e0b;">⭐ ${reputationScore}</div>
+                  <div class="text-muted text-xs">Builder Rating</div>
+                </div>
+              </div>
             </div>
           </div>
+
+          <!-- Profile Tabs Header -->
+          <div style="display:flex; gap:8px; border-bottom:1px solid #1f2937; padding-bottom:8px; overflow-x:auto;">
+            <button onclick="switchProfileTab('overview')" id="proftab-overview" class="btn btn-primary btn-sm">📌 Overview & Bio</button>
+            <button onclick="switchProfileTab('projects')" id="proftab-projects" class="btn btn-secondary btn-sm">🚀 Workspaces (${totalProjects})</button>
+            ${isMe ? `<button onclick="switchProfileTab('edit')" id="proftab-edit" class="btn btn-secondary btn-sm">⚙️ Edit Profile Settings</button>` : ''}
+          </div>
+
+          <!-- Tab Content Container -->
+          <div id="profile-tab-content"></div>
         </div>
       `;
+
+      switchProfileTab(activeProfileTab || 'overview', user);
     }
 
-    function editProfile() {
-      const bio = prompt("Update bio:", currentUser.bio || "");
-      if (bio === null) return;
-      const school = prompt("Update school / organization:", currentUser.school || "");
-      currentUser.bio = bio;
+    function switchProfileTab(tab, user = null) {
+      activeProfileTab = tab;
+      if (!user) {
+        user = currentUser;
+      }
+      
+      document.querySelectorAll('[id^="proftab-"]').forEach(b => { b.className = 'btn btn-secondary btn-sm'; });
+      const activeBtn = document.getElementById('proftab-' + tab);
+      if (activeBtn) activeBtn.className = 'btn btn-primary btn-sm';
+
+      const content = document.getElementById('profile-tab-content');
+      if (!content) return;
+
+      if (tab === 'overview') {
+        const skills = user.skills && user.skills.length > 0 ? user.skills : ['Full-Stack', 'UI/UX', 'AI/ML', 'Problem Solving'];
+        const bio = user.bio || 'Passionate about assembling high-performance teams, shipping hackathon projects, and building innovative software.';
+
+        content.innerHTML = `
+          <div style="display:grid; grid-template-columns:2fr 1fr; gap:20px;">
+            <div style="display:flex; flex-direction:column; gap:20px;">
+              <!-- About Bio Box -->
+              <div class="glass-card" style="display:flex; flex-direction:column; gap:12px;">
+                <h3 style="font-size:1.1rem; font-weight:700;">About & Background</h3>
+                <p style="color:#cbd5e1; font-size:0.9rem; line-height:1.6;">${escapeHtml(bio)}</p>
+              </div>
+
+              <!-- Skills & Expertise Box -->
+              <div class="glass-card" style="display:flex; flex-direction:column; gap:12px;">
+                <h3 style="font-size:1.1rem; font-weight:700;">Skills & Domain Expertise</h3>
+                <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                  ${skills.map(s => `<span class="badge badge-indigo" style="padding:6px 12px; font-size:0.8rem;">⚡ ${escapeHtml(s)}</span>`).join('')}
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:20px;">
+              <!-- Links & Contact Info -->
+              <div class="glass-card" style="display:flex; flex-direction:column; gap:14px;">
+                <h3 style="font-size:1.1rem; font-weight:700;">Connected Channels</h3>
+                <div style="display:flex; flex-direction:column; gap:10px; font-size:0.85rem;">
+                  <div style="display:flex; align-items:center; gap:8px; color:#94a3b8;">
+                    <span>🐙 GitHub:</span>
+                    <a href="${user.githubUrl || '#'}" target="_blank" style="color:#818cf8; text-decoration:none;">${user.githubUrl ? escapeHtml(user.githubUrl.replace(/^https?:\/\//, '')) : 'github.com/' + (user.name || '').toLowerCase().replace(/\s+/g, '')}</a>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:8px; color:#94a3b8;">
+                    <span>💼 Portfolio:</span>
+                    <a href="${user.portfolioUrl || '#'}" target="_blank" style="color:#818cf8; text-decoration:none;">${user.portfolioUrl ? escapeHtml(user.portfolioUrl.replace(/^https?:\/\//, '')) : 'pronnect.app/@' + (user.name || '').toLowerCase().replace(/\s+/g, '')}</a>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:8px; color:#94a3b8;">
+                    <span>🗓️ Member Since:</span>
+                    <span style="color:#f8fafc;">${user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'August 2026'}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Quick Status -->
+              <div class="glass-card" style="display:flex; flex-direction:column; gap:8px; background:linear-gradient(135deg, rgba(99,102,241,0.1), rgba(168,85,247,0.1));">
+                <div style="font-weight:700; font-size:0.9rem; color:#a5b4fc;">🚀 Open for Collaboration</div>
+                <p class="text-muted text-xs">Available for hackathons, research teams, and startup projects.</p>
+              </div>
+            </div>
+          </div>
+        `;
+      } else if (tab === 'projects') {
+        const userProjects = store.projects.filter(p => p.leaderId === user.id || store.members.some(m => m.projectId === p.id && m.userId === user.id));
+        
+        content.innerHTML = `
+          <div style="display:flex; flex-direction:column; gap:16px;">
+            <div class="flex justify-between items-center">
+              <h3 style="font-weight:700; font-size:1.1rem;">Participating Workspaces (${userProjects.length})</h3>
+              ${currentUser && currentUser.id === user.id ? `<button onclick="navigate('new-project')" class="btn btn-primary btn-sm">+ Create Project</button>` : ''}
+            </div>
+
+            ${userProjects.length === 0 ? `
+              <div class="glass-card" style="text-align:center; padding:40px; color:#94a3b8;">
+                <div>📂</div>
+                <div style="margin-top:6px;">No projects created or joined yet.</div>
+              </div>
+            ` : `
+              <div class="grid grid-3">
+                ${userProjects.map(p => {
+                  const isLeader = p.leaderId === user.id;
+                  const memberCount = store.members.filter(m => m.projectId === p.id).length || 1;
+                  return `
+                    <div class="glass-card flex flex-col justify-between" style="cursor:pointer;" onclick="navigate('project', '${p.id}')">
+                      <div>
+                        <div class="flex justify-between items-center" style="margin-bottom:8px;">
+                          <h4 style="font-weight:600; font-size:1rem; color:#f8fafc;">${escapeHtml(p.name)}</h4>
+                          <span class="badge ${isLeader ? 'badge-indigo' : 'badge-green'}">${isLeader ? 'Leader' : 'Member'}</span>
+                        </div>
+                        <p class="text-muted text-xs" style="margin-bottom:12px;">${escapeHtml(p.description)}</p>
+                        <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:12px;">
+                          ${(p.tags || []).map(t => `<span class="badge">${t}</span>`).join('')}
+                        </div>
+                      </div>
+                      <div class="flex justify-between items-center text-xs" style="border-top:1px solid #1f2937; padding-top:8px; color:#94a3b8;">
+                        <span>👥 ${memberCount} collaborator${memberCount !== 1 ? 's' : ''}</span>
+                        <button class="btn btn-secondary btn-sm" style="padding:4px 8px; font-size:10px;">View &rarr;</button>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            `}
+          </div>
+        `;
+      } else if (tab === 'edit') {
+        content.innerHTML = `
+          <div class="glass-card" style="max-width:680px; margin:0 auto; display:flex; flex-direction:column; gap:20px;">
+            <h3 style="font-size:1.2rem; font-weight:700;">Edit Profile Settings</h3>
+            <form onsubmit="handleSaveProfileSettings(event)" style="display:flex; flex-direction:column; gap:16px;">
+              <div>
+                <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Display Name</label>
+                <input id="edit-name" value="${escapeHtml(user.name || '')}" required />
+              </div>
+              <div>
+                <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Headline / Professional Title</label>
+                <input id="edit-headline" value="${escapeHtml(user.headline || '')}" placeholder="e.g. AI Researcher & Full-Stack Developer" />
+              </div>
+              <div>
+                <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">School / Institution / College</label>
+                <input id="edit-school" value="${escapeHtml(user.school || '')}" placeholder="e.g. Dayananda Sagar College of Engineering" />
+              </div>
+              <div>
+                <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Bio / Background</label>
+                <textarea id="edit-bio" rows="4" placeholder="Tell collaborators about your interests and experience...">${escapeHtml(user.bio || '')}</textarea>
+              </div>
+              <div>
+                <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Skills (comma-separated)</label>
+                <input id="edit-skills" value="${escapeHtml((user.skills || []).join(', '))}" placeholder="React, Node.js, Python, ROS, PyTorch" />
+              </div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <div>
+                  <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">GitHub Profile URL</label>
+                  <input id="edit-github" value="${escapeHtml(user.githubUrl || '')}" placeholder="https://github.com/username" />
+                </div>
+                <div>
+                  <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Portfolio / Website URL</label>
+                  <input id="edit-portfolio" value="${escapeHtml(user.portfolioUrl || '')}" placeholder="https://yourportfolio.dev" />
+                </div>
+              </div>
+              <div style="display:flex; gap:12px; margin-top:8px;">
+                <button type="button" onclick="switchProfileTab('overview')" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary" style="flex:1;">Save & Sync Changes</button>
+              </div>
+            </form>
+          </div>
+        `;
+      }
+    }
+
+    async function handleSaveProfileSettings(e) {
+      e.preventDefault();
+      if (!currentUser) return;
+
+      const name = document.getElementById('edit-name').value.trim();
+      const headline = document.getElementById('edit-headline').value.trim();
+      const school = document.getElementById('edit-school').value.trim();
+      const bio = document.getElementById('edit-bio').value.trim();
+      const skillsRaw = document.getElementById('edit-skills').value.trim();
+      const githubUrl = document.getElementById('edit-github').value.trim();
+      const portfolioUrl = document.getElementById('edit-portfolio').value.trim();
+
+      const skills = skillsRaw ? skillsRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+      currentUser.name = name;
+      currentUser.headline = headline;
       currentUser.school = school;
+      currentUser.bio = bio;
+      currentUser.skills = skills;
+      currentUser.githubUrl = githubUrl;
+      currentUser.portfolioUrl = portfolioUrl;
+
       const u = store.users.find(x => x.id === currentUser.id);
-      if (u) { u.bio = bio; u.school = school; }
-      saveState();
+      if (u) {
+        Object.assign(u, { name, headline, school, bio, skills, githubUrl, portfolioUrl });
+      }
+
+      await saveState();
+      renderNavAuth();
+      showToast('Profile updated & synced live!');
       renderProfileView(currentUser.id);
+    }
+
+    function copyProfileLink(userId) {
+      const url = window.location.origin + window.location.pathname + '#profile/' + userId;
+      navigator.clipboard.writeText(url).then(() => {
+        showToast('Profile link copied to clipboard!');
+      }).catch(() => {
+        showToast('Profile ID: ' + userId);
+      });
     }
 
     function escapeHtml(str) {
@@ -1408,3 +1672,4 @@
   </script>
 </body>
 </html>
+
