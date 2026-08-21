@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pronnect — Discover Teams & Build Projects</title>
+  <title>Pronnect — Project Collaboration & Team Discovery</title>
+  <meta name="description" content="Pronnect is a collaboration platform to discover project teammates, manage tasks, and build open projects.">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background-color: #030712; color: #f9fafb; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; line-height: 1.5; min-height: 100vh; display: flex; flex-direction: column; }
@@ -81,8 +82,7 @@
   <div id="toast-root"></div>
 
   <script>
-    // --- LOCAL STORAGE DATA STORE (FOR GITHUB PAGES & LOCAL HOST) ---
-    const STORAGE_KEY = "pronnect_ghpages_data";
+    const STORAGE_KEY = "pronnect_workspace_state";
     
     function getStore() {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -131,12 +131,11 @@
             <div style="width:20px; height:20px; border-radius:50%; background:#6366f1; color:white; font-size:10px; display:flex; align-items:center; justify-content:center; font-weight:bold;">\${currentUser.name.slice(0, 1).toUpperCase()}</div>
             <span>\${escapeHtml(currentUser.name)}</span>
           </button>
-          <button onclick="logout()" class="btn btn-secondary btn-sm" style="color:#ef4444;">Sign Out</button>
+          <button onclick="logout()" class="btn btn-secondary btn-sm" style="color:#ef4444;">Switch Profile</button>
         \`;
       } else {
         container.innerHTML = \`
-          <button onclick="navigate('login')" class="btn btn-secondary">Sign In</button>
-          <button onclick="navigate('register')" class="btn btn-primary">Get Started</button>
+          <button onclick="navigate('join')" class="btn btn-primary">Join / Set Profile</button>
         \`;
       }
     }
@@ -146,22 +145,21 @@
       currentUser = null;
       saveStore(store);
       renderNavAuth();
-      showToast('Logged out');
-      navigate('explore');
+      showToast('Profile switched');
+      navigate('join');
     }
 
     function navigate(view, param = null) {
       currentView = view;
       if (view === 'explore') renderExploreView();
-      else if (view === 'login') renderLoginView();
-      else if (view === 'register') renderRegisterView();
+      else if (view === 'join') renderJoinView();
       else if (view === 'new-project') renderNewProjectView();
       else if (view === 'project') renderProjectView(param);
       else if (view === 'global-chat') renderGlobalChatView();
       else if (view === 'profile') renderProfileView(param || (currentUser ? currentUser.id : null));
     }
 
-    // --- 1. EXPLORE VIEW ---
+    // --- 1. EXPLORE ---
     function renderExploreView() {
       const root = document.getElementById('app-root');
       root.innerHTML = \`
@@ -176,8 +174,8 @@
 
           <div class="glass-card" style="display:flex; flex-direction:column; gap:12px;">
             <div style="display:flex; gap:12px; flex-wrap:wrap;">
-              <input id="search-input" oninput="loadProjects()" placeholder="Search projects..." style="flex:1; min-width:200px;" />
-              <input id="school-input" oninput="loadProjects()" placeholder="Filter by school/institution..." style="flex:1; min-width:200px;" />
+              <input id="search-input" oninput="loadProjects()" placeholder="Search projects by name..." style="flex:1; min-width:200px;" />
+              <input id="school-input" oninput="loadProjects()" placeholder="Filter by school / college..." style="flex:1; min-width:200px;" />
             </div>
             <div style="display:flex; gap:6px; flex-wrap:wrap;" id="tag-filters">
               <button onclick="selectTag('')" id="tag-btn-all" class="badge badge-indigo" style="cursor:pointer; padding:6px 12px;">All Tags</button>
@@ -222,7 +220,7 @@
           <div style="grid-column:1/-1; text-align:center; padding:60px 20px; color:#9ca3af;">
             <div style="font-size:2.5rem; margin-bottom:10px;">🚀</div>
             <h3 style="font-size:1.1rem; color:#f3f4f6; margin-bottom:6px;">No projects yet</h3>
-            <p class="text-muted text-sm" style="margin-bottom:16px;">Be the first to start a project and assemble your dream team!</p>
+            <p class="text-muted text-sm" style="margin-bottom:16px;">Be the first to start a project and assemble your team!</p>
             <button onclick="navigate('new-project')" class="btn btn-primary">+ Create Project</button>
           </div>
         \`;
@@ -266,7 +264,6 @@
         return;
       }
 
-      const leader = store.users.find(u => u.id === project.leaderId);
       const isLeader = currentUser && project.leaderId === currentUser.id;
       const isMember = isLeader || (currentUser && store.members.some(m => m.projectId === project.id && m.userId === currentUser.id));
 
@@ -285,7 +282,7 @@
             </div>
             <div>
               \${!isMember && currentUser ? \`<button onclick="requestToJoin('\${project.id}')" class="btn btn-primary">Request to Join</button>\` : ''}
-              \${!currentUser ? \`<button onclick="navigate('login')" class="btn btn-secondary">Sign in to Join</button>\` : ''}
+              \${!currentUser ? \`<button onclick="navigate('join')" class="btn btn-secondary">Set Profile to Join</button>\` : ''}
             </div>
           </div>
 
@@ -342,7 +339,7 @@
       else if (tab === 'requests') loadProjectRequests(activeProjectId);
     }
 
-    // --- TEAM CHAT ---
+    // --- CHAT ---
     function loadProjectChat(projId) {
       const container = document.getElementById('project-tab-content');
       container.innerHTML = \`
@@ -664,7 +661,7 @@
 
     // --- CREATE PROJECT ---
     function renderNewProjectView() {
-      if (!currentUser) { navigate('login'); return; }
+      if (!currentUser) { navigate('join'); return; }
       const root = document.getElementById('app-root');
       root.innerHTML = \`
         <div class="glass-card" style="max-width:600px; margin:0 auto; display:flex; flex-direction:column; gap:16px;">
@@ -740,14 +737,14 @@
           <div class="flex justify-between items-center">
             <div>
               <h1 style="font-size:1.5rem; font-weight:bold;">Global Community Chat</h1>
-              <p class="text-muted text-xs">Live chat for makers</p>
+              <p class="text-muted text-xs">Live chat for makers & builders</p>
             </div>
             <span class="badge badge-green">Active</span>
           </div>
           <div class="glass-card" style="display:flex; flex-direction:column; gap:12px;">
             <div id="global-chat-messages" class="chat-box"></div>
             <form onsubmit="sendGlobalMessage(event)" style="display:flex; gap:8px;">
-              <input id="global-msg-input" placeholder="\${currentUser ? 'Send a message to the community...' : 'Sign in to participate...'}" \${!currentUser ? 'disabled' : ''} style="flex:1;" />
+              <input id="global-msg-input" placeholder="\${currentUser ? 'Send a message to the community...' : 'Set your profile to participate...'}" \${!currentUser ? 'disabled' : ''} style="flex:1;" />
               <button type="submit" \${!currentUser ? 'disabled' : ''} class="btn btn-primary">Send</button>
             </form>
           </div>
@@ -842,98 +839,47 @@
       renderProfileView(currentUser.id);
     }
 
-    // --- AUTH ---
-    function renderLoginView() {
+    // --- PROFILE CREATOR / JOIN ---
+    function renderJoinView() {
       const root = document.getElementById('app-root');
       root.innerHTML = \`
-        <div class="glass-card" style="max-width:400px; margin:40px auto; display:flex; flex-direction:column; gap:16px;">
-          <h2 style="font-size:1.5rem; font-weight:bold; text-align:center;">Sign In</h2>
-          <form onsubmit="handleLogin(event)" style="display:flex; flex-direction:column; gap:12px;">
+        <div class="glass-card" style="max-width:440px; margin:40px auto; display:flex; flex-direction:column; gap:16px;">
+          <h2 style="font-size:1.5rem; font-weight:bold; text-align:center;">Join Pronnect</h2>
+          <p class="text-muted text-xs" style="text-align:center;">Set your collaborator profile to start discovering and creating projects.</p>
+          <form onsubmit="handleSetProfile(event)" style="display:flex; flex-direction:column; gap:12px;">
             <div>
-              <label class="text-xs" style="margin-bottom:4px; display:block;">Email</label>
-              <input id="login-email" type="email" required placeholder="you@example.com" />
+              <label class="text-xs" style="margin-bottom:4px; display:block;">Your Name / Handle</label>
+              <input id="user-name" required placeholder="Alex Rivera" />
             </div>
             <div>
-              <label class="text-xs" style="margin-bottom:4px; display:block;">Password</label>
-              <input id="login-password" type="password" required placeholder="••••••••" />
+              <label class="text-xs" style="margin-bottom:4px; display:block;">School / College / Institution</label>
+              <input id="user-school" placeholder="MIT, Stanford, etc." />
             </div>
-            <button type="submit" class="btn btn-primary" style="margin-top:8px;">Sign In</button>
+            <button type="submit" class="btn btn-primary" style="margin-top:8px;">Enter Platform</button>
           </form>
-          <div style="text-align:center; font-size:0.75rem; color:#9ca3af;">
-            Don't have an account? <button onclick="navigate('register')" class="btn btn-secondary btn-sm">Sign Up</button>
-          </div>
         </div>
       \`;
     }
 
-    function handleLogin(e) {
+    function handleSetProfile(e) {
       e.preventDefault();
-      const email = document.getElementById('login-email').value.trim();
-      const u = store.users.find(x => x.email.toLowerCase() === email.toLowerCase());
-      if (!u) {
-        showToast("User not found. Please sign up first!", true);
-        return;
+      const name = document.getElementById('user-name').value.trim();
+      const school = document.getElementById('user-school').value.trim();
+
+      let existing = store.users.find(u => u.name.toLowerCase() === name.toLowerCase());
+      if (!existing) {
+        existing = {
+          id: "u_" + Date.now(),
+          name,
+          school
+        };
+        store.users.push(existing);
       }
-      currentUser = u;
-      store.currentUser = u;
+      store.currentUser = existing;
+      currentUser = existing;
       saveStore(store);
       renderNavAuth();
-      showToast('Welcome back, ' + u.name + '!');
-      navigate('explore');
-    }
-
-    function renderRegisterView() {
-      const root = document.getElementById('app-root');
-      root.innerHTML = \`
-        <div class="glass-card" style="max-width:400px; margin:40px auto; display:flex; flex-direction:column; gap:16px;">
-          <h2 style="font-size:1.5rem; font-weight:bold; text-align:center;">Create Account</h2>
-          <form onsubmit="handleRegister(event)" style="display:flex; flex-direction:column; gap:12px;">
-            <div>
-              <label class="text-xs" style="margin-bottom:4px; display:block;">Full Name</label>
-              <input id="reg-name" required placeholder="Alex Rivera" />
-            </div>
-            <div>
-              <label class="text-xs" style="margin-bottom:4px; display:block;">Email</label>
-              <input id="reg-email" type="email" required placeholder="you@example.com" />
-            </div>
-            <div>
-              <label class="text-xs" style="margin-bottom:4px; display:block;">Password</label>
-              <input id="reg-password" type="password" required placeholder="••••••••" />
-            </div>
-            <div>
-              <label class="text-xs" style="margin-bottom:4px; display:block;">School / Institution</label>
-              <input id="reg-school" placeholder="MIT, Stanford, etc." />
-            </div>
-            <button type="submit" class="btn btn-primary" style="margin-top:8px;">Sign Up</button>
-          </form>
-          <div style="text-align:center; font-size:0.75rem; color:#9ca3af;">
-            Already registered? <button onclick="navigate('login')" class="btn btn-secondary btn-sm">Sign In</button>
-          </div>
-        </div>
-      \`;
-    }
-
-    function handleRegister(e) {
-      e.preventDefault();
-      const name = document.getElementById('reg-name').value.trim();
-      const email = document.getElementById('reg-email').value.trim();
-      const school = document.getElementById('reg-school').value.trim();
-
-      const existing = store.users.find(u => u.email.toLowerCase() === email.toLowerCase());
-      if (existing) { showToast("Email already exists!", true); return; }
-
-      const newUser = {
-        id: "u_" + Date.now(),
-        name,
-        email,
-        school
-      };
-      store.users.push(newUser);
-      store.currentUser = newUser;
-      currentUser = newUser;
-      saveStore(store);
-      renderNavAuth();
-      showToast('Account created!');
+      showToast('Welcome, ' + existing.name + '!');
       navigate('explore');
     }
 
