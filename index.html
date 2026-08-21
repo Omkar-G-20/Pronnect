@@ -34,7 +34,6 @@
     .badge-indigo { background: rgba(99, 102, 241, 0.15); border-color: rgba(99, 102, 241, 0.3); color: #a5b4fc; }
     .badge-green { background: rgba(34, 197, 94, 0.15); border-color: rgba(34, 197, 94, 0.3); color: #86efac; }
     .badge-yellow { background: rgba(234, 179, 8, 0.15); border-color: rgba(234, 179, 8, 0.3); color: #fde047; }
-    .badge-red { background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.3); color: #fca5a5; }
     
     input, textarea, select { width: 100%; padding: 10px 14px; background: #111827; border: 1px solid #374151; border-radius: 8px; color: #f9fafb; font-size: 0.875rem; outline: none; transition: border-color 0.2s; }
     input:focus, textarea:focus, select:focus { border-color: #6366f1; }
@@ -45,8 +44,6 @@
     .btn-secondary { background: #1f2937; color: #e5e7eb; border: 1px solid #374151; }
     .btn-secondary:hover { background: #374151; }
     .btn-sm { padding: 6px 12px; font-size: 0.75rem; }
-    .btn-danger { background: #dc2626; color: white; }
-    .btn-danger:hover { background: #b91c1c; }
     
     .chat-box { height: 460px; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; background: #0b0f19; border-radius: 8px; }
     .msg-bubble { padding: 8px 14px; border-radius: 16px; max-width: 80%; font-size: 0.875rem; }
@@ -59,10 +56,6 @@
     #toast-root { position: fixed; bottom: 20px; right: 20px; z-index: 100; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
     .toast { padding: 12px 18px; border-radius: 8px; font-size: 0.875rem; background: #111827; border: 1px solid #6366f1; color: white; box-shadow: 0 10px 25px rgba(0,0,0,0.5); pointer-events: auto; }
     .toast-err { border-color: #ef4444; background: #450a0a; }
-
-    /* Modal */
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 999; padding: 16px; }
-    .modal-content { background: #111827; border: 1px solid #374151; border-radius: 12px; width: 100%; max-width: 440px; padding: 24px; }
   </style>
 </head>
 <body>
@@ -89,9 +82,10 @@
   <div id="toast-root"></div>
 
   <script>
-    // --- SHARED REAL-TIME CLOUD STORAGE BRIDGE (FOR MULTI-PROFILE & CROSS-DEVICE SYNC) ---
-    const CLOUD_SYNC_ENDPOINT = "https://kvdb.io/A95b1gJtqZ3zH5mK1n9q7W/pronnect_global_state_v1";
-    const LOCAL_CACHE_KEY = "pronnect_cached_state_v1";
+    // --- LIVE PERSISTENT CLOUD STORE (SHARED ACROSS ALL BROWSERS, PHONES & PROFILES) ---
+    const CLOUD_OBJECT_ID = "ff8081819ff5b11001a0248511b36d4e";
+    const CLOUD_API_URL = "https://api.restful-api.dev/objects/" + CLOUD_OBJECT_ID;
+    const LOCAL_CACHE_KEY = "pronnect_cached_session_state";
 
     let store = {
       users: [],
@@ -107,21 +101,22 @@
 
     let currentUser = null;
     let currentView = 'auth';
-    let authMode = 'login'; // 'login' or 'register'
+    let authMode = 'login';
     let activeProjectId = null;
     let activeProjectTab = 'chat';
+    let isSaving = false;
     let isSyncing = false;
     let domainTags = ["AI/ML", "Web Dev", "Mobile", "Embedded Systems", "Robotics", "IoT", "Cybersecurity", "Data Science", "Research"];
 
-    // Load local cache immediately
-    const cached = localStorage.getItem(LOCAL_CACHE_KEY);
-    if (cached) {
-      try {
+    // Restore cached session
+    try {
+      const cached = localStorage.getItem(LOCAL_CACHE_KEY);
+      if (cached) {
         const parsed = JSON.parse(cached);
-        if (parsed.store) store = parsed.store;
         if (parsed.currentUser) currentUser = parsed.currentUser;
-      } catch (e) {}
-    }
+        if (parsed.store) store = parsed.store;
+      }
+    } catch (e) {}
 
     function showToast(msg, isError = false) {
       const root = document.getElementById('toast-root');
@@ -132,40 +127,51 @@
       setTimeout(() => { toast.remove(); }, 3500);
     }
 
-    // Save and push to cloud
+    // Save full state to Cloud + Local cache
     async function saveState() {
       localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify({ store, currentUser }));
+      if (isSaving) return;
+      isSaving = true;
       try {
-        await fetch(CLOUD_SYNC_ENDPOINT, {
-          method: 'POST',
-          body: JSON.stringify(store)
+        await fetch(CLOUD_API_URL, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: 'pronnect_global_state_store',
+            data: store
+          })
         });
-      } catch (err) {}
+      } catch (err) {
+        console.error("Cloud save err:", err);
+      } finally {
+        isSaving = false;
+      }
     }
 
-    // Pull from cloud
+    // Pull full state from Cloud
     async function syncFromCloud() {
       if (isSyncing) return;
       isSyncing = true;
       try {
-        const res = await fetch(CLOUD_SYNC_ENDPOINT);
+        const res = await fetch(CLOUD_API_URL);
         if (res.ok) {
-          const cloudData = await res.json();
-          if (cloudData && typeof cloudData === 'object') {
+          const json = await res.json();
+          if (json && json.data && typeof json.data === 'object') {
+            const d = json.data;
             store = {
-              users: cloudData.users || [],
-              projects: cloudData.projects || [],
-              members: cloudData.members || [],
-              joinRequests: cloudData.joinRequests || [],
-              tasks: cloudData.tasks || [],
-              polls: cloudData.polls || [],
-              pollVotes: cloudData.pollVotes || [],
-              messages: cloudData.messages || [],
-              media: cloudData.media || []
+              users: d.users || [],
+              projects: d.projects || [],
+              members: d.members || [],
+              joinRequests: d.joinRequests || [],
+              tasks: d.tasks || [],
+              polls: d.polls || [],
+              pollVotes: d.pollVotes || [],
+              messages: d.messages || [],
+              media: d.media || []
             };
             localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify({ store, currentUser }));
-            
-            // Re-render active view
+
+            // Live refresh active views
             if (currentView === 'explore') loadProjects();
             if (currentView === 'global-chat') loadGlobalChat();
             if (currentView === 'project' && activeProjectId) {
@@ -174,17 +180,19 @@
               if (activeProjectTab === 'polls') loadProjectPolls(activeProjectId);
               if (activeProjectTab === 'media') loadProjectMedia(activeProjectId);
               if (activeProjectTab === 'progress') loadProjectProgress(activeProjectId);
+              if (activeProjectTab === 'requests') loadProjectRequests(activeProjectId);
             }
           }
         }
-      } catch (e) {}
-      finally {
+      } catch (e) {
+        console.error("Cloud sync err:", e);
+      } finally {
         isSyncing = false;
       }
     }
 
-    // Polling sync every 3 seconds for live multi-profile updates
-    setInterval(syncFromCloud, 3000);
+    // Auto-sync polling every 2.5 seconds for live multi-profile updates
+    setInterval(syncFromCloud, 2500);
 
     function init() {
       syncFromCloud().then(() => {
@@ -206,7 +214,7 @@
             <div style="width:20px; height:20px; border-radius:50%; background:#6366f1; color:white; font-size:10px; display:flex; align-items:center; justify-content:center; font-weight:bold;">${currentUser.name.slice(0, 1).toUpperCase()}</div>
             <span>${escapeHtml(currentUser.name)}</span>
           </button>
-          <button onclick="logout()" class="btn btn-secondary btn-sm" style="color:#ef4444;">Log Out</button>
+          <button onclick="logout()" class="btn btn-secondary btn-sm" style="color:#ef4444;">Sign Out</button>
         `;
       }
     }
@@ -215,7 +223,7 @@
       currentUser = null;
       localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify({ store, currentUser: null }));
       document.getElementById('app-nav').style.display = 'none';
-      showToast('Logged out');
+      showToast('Signed out');
       renderAuthGate();
     }
 
@@ -250,11 +258,11 @@
 
               <form onsubmit="handleAuthLogin(event)" style="display:flex; flex-direction:column; gap:14px;">
                 <div>
-                  <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Email or Username</label>
-                  <input id="auth-email" required placeholder="name@example.com or handle" />
+                  <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Email or Name</label>
+                  <input id="auth-email" required placeholder="name@example.com or Username" />
                 </div>
                 <div>
-                  <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Account Password / PIN</label>
+                  <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Password</label>
                   <input id="auth-password" type="password" required placeholder="••••••••" />
                 </div>
                 <button type="submit" class="btn btn-primary" style="padding:12px; margin-top:6px; font-weight:bold;">Sign In &rarr;</button>
@@ -273,7 +281,7 @@
               <div style="text-align:center;">
                 <div style="width:48px; height:48px; border-radius:12px; background:#6366f1; margin:0 auto 12px; display:flex; align-items:center; justify-content:center; font-size:1.5rem; font-weight:bold; color:white;">P</div>
                 <h1 class="gradient-text" style="font-size:1.75rem; margin-bottom:4px;">Create Profile</h1>
-                <p class="text-muted text-xs">Join collaborators and team up on projects</p>
+                <p class="text-muted text-xs">Join collaborators and discover projects</p>
               </div>
 
               <form onsubmit="handleAuthRegister(event)" style="display:flex; flex-direction:column; gap:12px;">
@@ -286,11 +294,11 @@
                   <input id="reg-email" type="email" required placeholder="name@example.com" />
                 </div>
                 <div>
-                  <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Password / PIN</label>
+                  <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Password</label>
                   <input id="reg-password" type="password" required placeholder="Create a password" />
                 </div>
                 <div>
-                  <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">College / School / Organization</label>
+                  <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">College / School / Institution</label>
                   <input id="reg-school" placeholder="e.g. Dayananda Sagar College of Engineering" />
                 </div>
                 <button type="submit" class="btn btn-primary" style="padding:12px; margin-top:6px; font-weight:bold;">Create Account &rarr;</button>
@@ -315,7 +323,6 @@
       const identifier = document.getElementById('auth-email').value.trim().toLowerCase();
       const password = document.getElementById('auth-password').value;
 
-      // Sync latest data before checking
       await syncFromCloud();
 
       const user = store.users.find(u => 
@@ -324,7 +331,7 @@
       );
 
       if (!user) {
-        showToast("Invalid credentials. If you haven't registered, click 'Create Account'!", true);
+        showToast("Invalid credentials. If you haven't created an account, click 'Create Account'!", true);
         return;
       }
 
@@ -378,10 +385,10 @@
           <div class="flex justify-between items-center" style="flex-wrap:wrap; gap:12px;">
             <div>
               <h1 style="font-size:1.75rem; font-weight:bold;">Explore Projects</h1>
-              <p class="text-muted text-sm">Discover public projects or enter private project passwords to join</p>
+              <p class="text-muted text-sm">Discover public projects or unlock private team projects</p>
             </div>
             <div style="display:flex; gap:8px;">
-              <button onclick="promptJoinPrivateProject()" class="btn btn-secondary">🔑 Enter Private Project</button>
+              <button onclick="promptJoinPrivateProject()" class="btn btn-secondary">🔑 Unlock Private Project</button>
               <button onclick="navigate('new-project')" class="btn btn-primary">+ Create Project</button>
             </div>
           </div>
@@ -416,12 +423,8 @@
       const search = document.getElementById('search-input')?.value.toLowerCase() || '';
       const school = document.getElementById('school-input')?.value.toLowerCase() || '';
       
-      // Filter projects: Public OR Projects user is a member of
-      let list = store.projects.filter(p => 
-        p.visibility === 'PUBLIC' || 
-        (currentUser && p.leaderId === currentUser.id) ||
-        (currentUser && store.members.some(m => m.projectId === p.id && m.userId === currentUser.id))
-      );
+      // All projects in cloud store are shown (Public OR Private)
+      let list = store.projects || [];
 
       if (activeTag) list = list.filter(p => p.tags && p.tags.includes(activeTag));
       if (search) list = list.filter(p => p.name.toLowerCase().includes(search) || p.description.toLowerCase().includes(search));
@@ -439,8 +442,8 @@
         grid.innerHTML = `
           <div style="grid-column:1/-1; text-align:center; padding:60px 20px; color:#9ca3af;">
             <div style="font-size:2.5rem; margin-bottom:10px;">🚀</div>
-            <h3 style="font-size:1.1rem; color:#f3f4f6; margin-bottom:6px;">No projects found</h3>
-            <p class="text-muted text-sm" style="margin-bottom:16px;">Create the first project and invite team members across different profiles!</p>
+            <h3 style="font-size:1.1rem; color:#f3f4f6; margin-bottom:6px;">No projects created yet</h3>
+            <p class="text-muted text-sm" style="margin-bottom:16px;">Create a project to start collaborating with team members across different profiles!</p>
             <button onclick="navigate('new-project')" class="btn btn-primary">+ Create Project</button>
           </div>
         `;
@@ -451,6 +454,8 @@
         const leader = store.users.find(u => u.id === p.leaderId);
         const memberCount = store.members.filter(m => m.projectId === p.id).length || 1;
         const isPrivate = p.visibility === 'PRIVATE';
+        const isLeader = currentUser && p.leaderId === currentUser.id;
+        const isMember = isLeader || (currentUser && store.members.some(m => m.projectId === p.id && m.userId === currentUser.id));
 
         return `
           <div class="glass-card flex flex-col justify-between" style="cursor:pointer;" onclick="handleProjectCardClick('${p.id}')">
@@ -472,7 +477,7 @@
                 <div>Led by <strong>${leader ? escapeHtml(leader.name) : 'Leader'}</strong></div>
                 ${leader && leader.school ? `<div>🎓 ${escapeHtml(leader.school)}</div>` : ''}
               </div>
-              <button class="btn btn-secondary btn-sm">${isPrivate ? 'Unlock &rarr;' : 'Open &rarr;'}</button>
+              <button class="btn btn-secondary btn-sm">${isPrivate && !isMember ? 'Unlock &rarr;' : 'Open &rarr;'}</button>
             </div>
           </div>
         `;
@@ -493,16 +498,12 @@
       }
     }
 
-    // --- PRIVATE PROJECT PASSWORD UNLOCK ---
     function promptJoinPrivateProject() {
-      const projNameOrCode = prompt("Enter Project Name or Invite Code:");
-      if (!projNameOrCode) return;
-      const p = store.projects.find(x => 
-        x.name.toLowerCase() === projNameOrCode.trim().toLowerCase() ||
-        (x.inviteCode && x.inviteCode.toUpperCase() === projNameOrCode.trim().toUpperCase())
-      );
+      const projName = prompt("Enter the exact Name of the Private Project:");
+      if (!projName) return;
+      const p = store.projects.find(x => x.name.toLowerCase() === projName.trim().toLowerCase());
       if (!p) {
-        showToast("Project not found. Check the name or code!", true);
+        showToast("Project not found. Check the spelling!", true);
         return;
       }
       promptUnlockPrivateProject(p.id);
@@ -512,16 +513,15 @@
       const p = store.projects.find(x => x.id === projId);
       if (!p) return;
 
-      const enteredPass = prompt(`🔒 Private Project: "${p.name}"\nEnter the Project Password to join:`);
+      const enteredPass = prompt(`🔒 Private Project: "${p.name}"\nEnter the Project Password:`);
       if (enteredPass === null) return;
 
       if (enteredPass.trim() === (p.password || "").trim()) {
-        // Grant membership
         if (!store.members.some(m => m.projectId === p.id && m.userId === currentUser.id)) {
           store.members.push({ projectId: p.id, userId: currentUser.id });
           saveState();
         }
-        showToast("Password verified! Welcome to the team.", false);
+        showToast("Password verified! Unlocked project.", false);
         navigate('project', p.id);
       } else {
         showToast("Incorrect project password!", true);
@@ -1018,7 +1018,6 @@
         description,
         visibility,
         password,
-        inviteCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
         tags: selectedTags,
         leaderId: currentUser.id,
         createdAt: new Date().toISOString()
@@ -1028,7 +1027,7 @@
       store.members.push({ projectId: newProj.id, userId: currentUser.id });
       await saveState();
       selectedTags = [];
-      showToast('Project created & synced live!');
+      showToast('Project created & synced live to cloud!');
       navigate('project', newProj.id);
     }
 
