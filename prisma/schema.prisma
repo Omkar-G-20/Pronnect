@@ -1,0 +1,314 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============ AUTH (NextAuth.js compatible) ============
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?
+
+  // Profile fields
+  bio        String?
+  githubUrl  String?
+  school     String?
+  skills     String[]
+  avatarUrl  String?
+  isAdmin    Boolean   @default(false)
+  isBanned   Boolean   @default(false)
+  mutedUntil DateTime?
+
+  // NextAuth relations
+  accounts Account[]
+  sessions Session[]
+
+  // App relations
+  ownedProjects  Project[]       @relation("ProjectLeader")
+  projectMembers ProjectMember[]
+  joinRequests   JoinRequest[]
+  assignedTasks  Task[]          @relation("TaskAssignee")
+  createdTasks   Task[]          @relation("TaskCreator")
+  polls          Poll[]
+  pollVotes      PollVote[]
+  messages       Message[]
+  mediaItems     MediaItem[]
+  notifications  Notification[]
+  activityLogs   ActivityLog[]
+  reports        Report[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ============ PROJECTS ============
+
+enum Visibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum MemberRole {
+  LEADER
+  MEMBER
+}
+
+enum JoinStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
+model Project {
+  id                String     @id @default(cuid())
+  name              String
+  description       String     @db.Text
+  visibility        Visibility @default(PUBLIC)
+  tags              String[]
+  encryptedSettings String?    @db.Text
+  settingsIv        String?
+  settingsTag       String?
+  inviteCode        String?    @unique
+
+  leaderId String
+  leader   User   @relation("ProjectLeader", fields: [leaderId], references: [id])
+
+  members      ProjectMember[]
+  joinRequests JoinRequest[]
+  tasks        Task[]
+  polls        Poll[]
+  messages     Message[]     @relation("ProjectMessages")
+  mediaItems   MediaItem[]
+  activityLogs ActivityLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ProjectMember {
+  id        String     @id @default(cuid())
+  projectId String
+  userId    String
+  role      MemberRole @default(MEMBER)
+  joinedAt  DateTime   @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+}
+
+model JoinRequest {
+  id        String     @id @default(cuid())
+  projectId String
+  userId    String
+  message   String?    @db.Text
+  status    JoinStatus @default(PENDING)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, userId])
+}
+
+// ============ TASKS ============
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  projectId   String
+  title       String
+  description String?    @db.Text
+  status      TaskStatus @default(TODO)
+  dueDate     DateTime?
+  assigneeId  String?
+  creatorId   String
+
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee User?   @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  creator  User    @relation("TaskCreator", fields: [creatorId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============ POLLS ============
+
+model Poll {
+  id            String    @id @default(cuid())
+  projectId     String
+  createdById   String
+  question      String
+  options       String[]
+  isMultiChoice Boolean   @default(false)
+  closedAt      DateTime?
+
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User       @relation(fields: [createdById], references: [id])
+  votes     PollVote[]
+
+  createdAt DateTime @default(now())
+}
+
+model PollVote {
+  id            String @id @default(cuid())
+  pollId        String
+  userId        String
+  optionIndexes Int[]
+
+  poll Poll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([pollId, userId])
+}
+
+// ============ MESSAGES ============
+
+enum MessageRoom {
+  PROJECT
+  GLOBAL
+}
+
+model Message {
+  id        String      @id @default(cuid())
+  room      MessageRoom
+  projectId String?
+  senderId  String
+  content   String      @db.Text
+  fileUrl   String?
+  isDeleted Boolean     @default(false)
+  isEdited  Boolean     @default(false)
+
+  project Project? @relation("ProjectMessages", fields: [projectId], references: [id], onDelete: Cascade)
+  sender  User     @relation(fields: [senderId], references: [id])
+  reports Report[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============ MEDIA ============
+
+enum MediaType {
+  IMAGE
+  FILE
+  LINK
+}
+
+model MediaItem {
+  id         String    @id @default(cuid())
+  projectId  String
+  uploaderId String
+  url        String
+  type       MediaType
+  name       String
+  size       Int?
+
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploader User    @relation(fields: [uploaderId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+// ============ NOTIFICATIONS ============
+
+model Notification {
+  id      String  @id @default(cuid())
+  userId  String
+  type    String
+  payload Json
+  read    Boolean @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+// ============ ACTIVITY LOG ============
+
+model ActivityLog {
+  id        String @id @default(cuid())
+  projectId String
+  actorId   String
+  action    String
+  metadata  Json?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actor   User    @relation(fields: [actorId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+// ============ REPORTS ============
+
+enum ReportStatus {
+  OPEN
+  REVIEWED
+  DISMISSED
+}
+
+model Report {
+  id         String       @id @default(cuid())
+  messageId  String
+  reporterId String
+  reason     String
+  status     ReportStatus @default(OPEN)
+
+  message  Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  reporter User    @relation(fields: [reporterId], references: [id])
+
+  createdAt DateTime @default(now())
+}
