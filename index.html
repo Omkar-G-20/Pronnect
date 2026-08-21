@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pronnect — Discover Teams & Build Projects</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background-color: #030712; color: #f9fafb; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; line-height: 1.5; min-height: 100vh; display: flex; flex-direction: column; }
+    
+    .container { max-width: 1200px; margin: 0 auto; width: 100%; padding: 24px 16px; flex: 1; }
+    nav { background: rgba(17, 24, 39, 0.9); backdrop-filter: blur(12px); border-bottom: 1px solid #1f2937; position: sticky; top: 0; z-index: 50; padding: 14px 24px; }
+    .nav-inner { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+    .nav-links { display: flex; gap: 8px; align-items: center; }
+    
+    .glass-card { background: rgba(31, 41, 55, 0.5); border: 1px solid #374151; border-radius: 12px; padding: 20px; }
+    .grid { display: grid; gap: 16px; }
+    .grid-3 { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+    .grid-kanban { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    .flex { display: flex; }
+    .flex-col { flex-direction: column; }
+    .items-center { align-items: center; }
+    .justify-between { justify-content: space-between; }
+    .gap-2 { gap: 8px; }
+    .gap-3 { gap: 12px; }
+    .gap-4 { gap: 16px; }
+    
+    .gradient-text { background: linear-gradient(135deg, #6366f1, #a855f7, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; }
+    .text-sm { font-size: 0.875rem; }
+    .text-xs { font-size: 0.75rem; }
+    .text-muted { color: #9ca3af; }
+    .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 500; background: #1f2937; border: 1px solid #374151; color: #d1d5db; }
+    .badge-indigo { background: rgba(99, 102, 241, 0.15); border-color: rgba(99, 102, 241, 0.3); color: #a5b4fc; }
+    .badge-green { background: rgba(34, 197, 94, 0.15); border-color: rgba(34, 197, 94, 0.3); color: #86efac; }
+    .badge-yellow { background: rgba(234, 179, 8, 0.15); border-color: rgba(234, 179, 8, 0.3); color: #fde047; }
+    
+    input, textarea, select { width: 100%; padding: 10px 14px; background: #111827; border: 1px solid #374151; border-radius: 8px; color: #f9fafb; font-size: 0.875rem; outline: none; transition: border-color 0.2s; }
+    input:focus, textarea:focus, select:focus { border-color: #6366f1; }
+    button { cursor: pointer; border: none; border-radius: 8px; font-weight: 500; font-size: 0.875rem; transition: all 0.2s; }
+    .btn { padding: 8px 16px; }
+    .btn-primary { background: #6366f1; color: white; }
+    .btn-primary:hover { background: #4f46e5; }
+    .btn-secondary { background: #1f2937; color: #e5e7eb; border: 1px solid #374151; }
+    .btn-secondary:hover { background: #374151; }
+    .btn-sm { padding: 6px 12px; font-size: 0.75rem; }
+    
+    .chat-box { height: 460px; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; background: #0b0f19; border-radius: 8px; }
+    .msg-bubble { padding: 8px 14px; border-radius: 16px; max-width: 80%; font-size: 0.875rem; }
+    .msg-me { align-self: flex-end; background: #6366f1; color: white; border-bottom-right-radius: 2px; }
+    .msg-other { align-self: flex-start; background: #1f2937; color: #f3f4f6; border-bottom-left-radius: 2px; }
+    
+    .progress-track { width: 100%; height: 10px; background: #1f2937; border-radius: 9999px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, #6366f1, #22c55e); transition: width 0.4s; }
+    
+    #toast-root { position: fixed; bottom: 20px; right: 20px; z-index: 100; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+    .toast { padding: 12px 18px; border-radius: 8px; font-size: 0.875rem; background: #111827; border: 1px solid #6366f1; color: white; box-shadow: 0 10px 25px rgba(0,0,0,0.5); pointer-events: auto; }
+    .toast-err { border-color: #ef4444; background: #450a0a; }
+  </style>
+</head>
+<body>
+  <!-- NAV -->
+  <nav>
+    <div class="nav-inner">
+      <div style="display:flex; align-items:center; gap:20px;">
+        <div onclick="navigate('explore')" style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+          <div style="width:32px; height:32px; border-radius:8px; background:#6366f1; display:flex; align-items:center; justify-content:center; font-weight:bold; color:white;">P</div>
+          <span class="gradient-text" style="font-size:1.25rem;">Pronnect</span>
+        </div>
+        <div class="nav-links">
+          <button class="btn btn-secondary" onclick="navigate('explore')">Explore</button>
+          <button class="btn btn-secondary" onclick="navigate('global-chat')">Global Chat</button>
+          <button class="btn btn-secondary" onclick="navigate('new-project')">+ New Project</button>
+        </div>
+      </div>
+      <div id="nav-auth" style="display:flex; align-items:center; gap:12px;"></div>
+    </div>
+  </nav>
+
+  <!-- CONTENT -->
+  <div class="container" id="app-root"></div>
+  <div id="toast-root"></div>
+
+  <script>
+    // --- LOCAL STORAGE DATA STORE (FOR GITHUB PAGES & LOCAL HOST) ---
+    const STORAGE_KEY = "pronnect_ghpages_data";
+    
+    function getStore() {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try { return JSON.parse(saved); } catch (e) {}
+      }
+      return {
+        users: [],
+        projects: [],
+        members: [],
+        joinRequests: [],
+        tasks: [],
+        polls: [],
+        pollVotes: [],
+        messages: [],
+        media: [],
+        currentUser: null
+      };
+    }
+
+    function saveStore(store) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+    }
+
+    let store = getStore();
+    let currentUser = store.currentUser;
+    let currentView = 'explore';
+    let activeProjectId = null;
+    let activeProjectTab = 'chat';
+    let domainTags = ["AI/ML", "Web Dev", "Mobile", "Embedded Systems", "Robotics", "IoT", "Cybersecurity", "Data Science", "Research"];
+
+    function showToast(msg, isError = false) {
+      const root = document.getElementById('toast-root');
+      const toast = document.createElement('div');
+      toast.className = 'toast ' + (isError ? 'toast-err' : '');
+      toast.innerHTML = (isError ? '⚠️ ' : '✅ ') + msg;
+      root.appendChild(toast);
+      setTimeout(() => { toast.remove(); }, 3500);
+    }
+
+    function renderNavAuth() {
+      const container = document.getElementById('nav-auth');
+      if (currentUser) {
+        container.innerHTML = \`
+          <button onclick="navigate('profile', '\${currentUser.id}')" class="btn btn-secondary" style="display:flex; align-items:center; gap:6px;">
+            <div style="width:20px; height:20px; border-radius:50%; background:#6366f1; color:white; font-size:10px; display:flex; align-items:center; justify-content:center; font-weight:bold;">\${currentUser.name.slice(0, 1).toUpperCase()}</div>
+            <span>\${escapeHtml(currentUser.name)}</span>
+          </button>
+          <button onclick="logout()" class="btn btn-secondary btn-sm" style="color:#ef4444;">Sign Out</button>
+        \`;
+      } else {
+        container.innerHTML = \`
+          <button onclick="navigate('login')" class="btn btn-secondary">Sign In</button>
+          <button onclick="navigate('register')" class="btn btn-primary">Get Started</button>
+        \`;
+      }
+    }
+
+    function logout() {
+      store.currentUser = null;
+      currentUser = null;
+      saveStore(store);
+      renderNavAuth();
+      showToast('Logged out');
+      navigate('explore');
+    }
+
+    function navigate(view, param = null) {
+      currentView = view;
+      if (view === 'explore') renderExploreView();
+      else if (view === 'login') renderLoginView();
+      else if (view === 'register') renderRegisterView();
+      else if (view === 'new-project') renderNewProjectView();
+      else if (view === 'project') renderProjectView(param);
+      else if (view === 'global-chat') renderGlobalChatView();
+      else if (view === 'profile') renderProfileView(param || (currentUser ? currentUser.id : null));
+    }
+
+    // --- 1. EXPLORE VIEW ---
+    function renderExploreView() {
+      const root = document.getElementById('app-root');
+      root.innerHTML = \`
+        <div style="display:flex; flex-direction:column; gap:20px;">
+          <div class="flex justify-between items-center">
+            <div>
+              <h1 style="font-size:1.75rem; font-weight:bold;">Explore Projects</h1>
+              <p class="text-muted text-sm">Discover teams and open collaboration projects</p>
+            </div>
+            <button onclick="navigate('new-project')" class="btn btn-primary">+ Create Project</button>
+          </div>
+
+          <div class="glass-card" style="display:flex; flex-direction:column; gap:12px;">
+            <div style="display:flex; gap:12px; flex-wrap:wrap;">
+              <input id="search-input" oninput="loadProjects()" placeholder="Search projects..." style="flex:1; min-width:200px;" />
+              <input id="school-input" oninput="loadProjects()" placeholder="Filter by school/institution..." style="flex:1; min-width:200px;" />
+            </div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;" id="tag-filters">
+              <button onclick="selectTag('')" id="tag-btn-all" class="badge badge-indigo" style="cursor:pointer; padding:6px 12px;">All Tags</button>
+              \${domainTags.map(t => \`<button onclick="selectTag('\${t}')" id="tag-btn-\${t.replace(/[^a-zA-Z]/g, '')}" class="badge" style="cursor:pointer; padding:6px 12px;">\${t}</button>\`).join('')}
+            </div>
+          </div>
+
+          <div id="projects-grid" class="grid grid-3"></div>
+        </div>
+      \`;
+      loadProjects();
+    }
+
+    let activeTag = '';
+    function selectTag(tag) {
+      activeTag = tag;
+      document.querySelectorAll('#tag-filters button').forEach(b => { b.className = 'badge'; });
+      const sel = tag ? document.getElementById('tag-btn-' + tag.replace(/[^a-zA-Z]/g, '')) : document.getElementById('tag-btn-all');
+      if (sel) sel.className = 'badge badge-indigo';
+      loadProjects();
+    }
+
+    function loadProjects() {
+      const search = document.getElementById('search-input')?.value.toLowerCase() || '';
+      const school = document.getElementById('school-input')?.value.toLowerCase() || '';
+      
+      let list = store.projects.filter(p => p.visibility === 'PUBLIC');
+      if (activeTag) list = list.filter(p => p.tags && p.tags.includes(activeTag));
+      if (search) list = list.filter(p => p.name.toLowerCase().includes(search) || p.description.toLowerCase().includes(search));
+      if (school) {
+        list = list.filter(p => {
+          const leader = store.users.find(u => u.id === p.leaderId);
+          return leader && leader.school && leader.school.toLowerCase().includes(school);
+        });
+      }
+
+      const grid = document.getElementById('projects-grid');
+      if (!grid) return;
+
+      if (list.length === 0) {
+        grid.innerHTML = \`
+          <div style="grid-column:1/-1; text-align:center; padding:60px 20px; color:#9ca3af;">
+            <div style="font-size:2.5rem; margin-bottom:10px;">🚀</div>
+            <h3 style="font-size:1.1rem; color:#f3f4f6; margin-bottom:6px;">No projects yet</h3>
+            <p class="text-muted text-sm" style="margin-bottom:16px;">Be the first to start a project and assemble your dream team!</p>
+            <button onclick="navigate('new-project')" class="btn btn-primary">+ Create Project</button>
+          </div>
+        \`;
+        return;
+      }
+
+      grid.innerHTML = list.map(p => {
+        const leader = store.users.find(u => u.id === p.leaderId);
+        const memberCount = store.members.filter(m => m.projectId === p.id).length || 1;
+        return \`
+          <div class="glass-card flex flex-col justify-between" style="cursor:pointer;" onclick="navigate('project', '\${p.id}')">
+            <div>
+              <div class="flex justify-between items-center" style="margin-bottom:8px;">
+                <h3 style="font-size:1.1rem; font-weight:600; color:#f3f4f6;">\${escapeHtml(p.name)}</h3>
+                <span class="badge">\${memberCount} member\${memberCount !== 1 ? 's' : ''}</span>
+              </div>
+              <p class="text-muted text-sm" style="margin-bottom:12px;">\${escapeHtml(p.description)}</p>
+              <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:16px;">
+                \${(p.tags || []).map(t => \`<span class="badge badge-indigo">\${t}</span>\`).join('')}
+              </div>
+            </div>
+            <div class="flex justify-between items-center" style="padding-top:10px; border-top:1px solid #1f2937;">
+              <div style="font-size:0.75rem; color:#9ca3af;">
+                <div>Led by <strong>\${leader ? escapeHtml(leader.name) : 'Leader'}</strong></div>
+                \${leader && leader.school ? \`<div>🎓 \${escapeHtml(leader.school)}</div>\` : ''}
+              </div>
+              <button class="btn btn-secondary btn-sm">View &rarr;</button>
+            </div>
+          </div>
+        \`;
+      }).join('');
+    }
+
+    // --- 2. PROJECT DETAIL & WORKSPACE ---
+    function renderProjectView(projectId) {
+      activeProjectId = projectId;
+      const root = document.getElementById('app-root');
+      const project = store.projects.find(p => p.id === projectId);
+      if (!project) {
+        root.innerHTML = '<div style="text-align:center; padding:60px; color:#ef4444;">Project not found.</div>';
+        return;
+      }
+
+      const leader = store.users.find(u => u.id === project.leaderId);
+      const isLeader = currentUser && project.leaderId === currentUser.id;
+      const isMember = isLeader || (currentUser && store.members.some(m => m.projectId === project.id && m.userId === currentUser.id));
+
+      root.innerHTML = \`
+        <div style="display:flex; flex-direction:column; gap:20px;">
+          <div class="glass-card flex justify-between items-center" style="flex-wrap:wrap; gap:16px;">
+            <div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <h1 style="font-size:1.5rem; font-weight:bold;">\${escapeHtml(project.name)}</h1>
+                <span class="badge \${project.visibility === 'PUBLIC' ? 'badge-green' : 'badge-yellow'}">\${project.visibility}</span>
+              </div>
+              <p class="text-muted text-sm" style="margin-top:6px;">\${escapeHtml(project.description)}</p>
+              <div style="display:flex; gap:6px; margin-top:10px;">
+                \${(project.tags || []).map(t => \`<span class="badge badge-indigo">\${t}</span>\`).join('')}
+              </div>
+            </div>
+            <div>
+              \${!isMember && currentUser ? \`<button onclick="requestToJoin('\${project.id}')" class="btn btn-primary">Request to Join</button>\` : ''}
+              \${!currentUser ? \`<button onclick="navigate('login')" class="btn btn-secondary">Sign in to Join</button>\` : ''}
+            </div>
+          </div>
+
+          \${!isMember ? \`
+            <div class="glass-card" style="text-align:center; padding:48px; color:#9ca3af;">
+              <div style="font-size:2rem; margin-bottom:8px;">🔒</div>
+              <h3>Members-Only Project Workspace</h3>
+              <p class="text-muted text-sm" style="margin-top:4px;">Join this project to access team chat, tasks, polls, and media.</p>
+            </div>
+          \` : \`
+            <div style="display:flex; gap:8px; border-bottom:1px solid #1f2937; padding-bottom:8px; overflow-x:auto;">
+              <button onclick="switchProjectTab('chat')" id="ptab-chat" class="btn btn-primary btn-sm">💬 Team Chat</button>
+              <button onclick="switchProjectTab('tasks')" id="ptab-tasks" class="btn btn-secondary btn-sm">📋 Tasks</button>
+              <button onclick="switchProjectTab('polls')" id="ptab-polls" class="btn btn-secondary btn-sm">📊 Polls</button>
+              <button onclick="switchProjectTab('media')" id="ptab-media" class="btn btn-secondary btn-sm">📁 Media & Links</button>
+              <button onclick="switchProjectTab('progress')" id="ptab-progress" class="btn btn-secondary btn-sm">📈 Progress</button>
+              \${isLeader ? \`<button onclick="switchProjectTab('requests')" id="ptab-requests" class="btn btn-secondary btn-sm">👥 Join Requests</button>\` : ''}
+            </div>
+            <div id="project-tab-content"></div>
+          \`}
+        </div>
+      \`;
+
+      if (isMember) switchProjectTab(activeProjectTab || 'chat');
+    }
+
+    function requestToJoin(projId) {
+      if (!currentUser) return;
+      const existing = store.joinRequests.find(r => r.projectId === projId && r.userId === currentUser.id);
+      if (existing) { showToast("Join request already pending!"); return; }
+
+      store.joinRequests.push({
+        id: "jr_" + Date.now(),
+        projectId: projId,
+        userId: currentUser.id,
+        status: "PENDING"
+      });
+      saveStore(store);
+      showToast("Join request sent to project leader!");
+      renderProjectView(projId);
+    }
+
+    function switchProjectTab(tab) {
+      activeProjectTab = tab;
+      document.querySelectorAll('[id^="ptab-"]').forEach(b => { b.className = 'btn btn-secondary btn-sm'; });
+      const active = document.getElementById('ptab-' + tab);
+      if (active) active.className = 'btn btn-primary btn-sm';
+
+      if (tab === 'chat') loadProjectChat(activeProjectId);
+      else if (tab === 'tasks') loadProjectTasks(activeProjectId);
+      else if (tab === 'polls') loadProjectPolls(activeProjectId);
+      else if (tab === 'media') loadProjectMedia(activeProjectId);
+      else if (tab === 'progress') loadProjectProgress(activeProjectId);
+      else if (tab === 'requests') loadProjectRequests(activeProjectId);
+    }
+
+    // --- TEAM CHAT ---
+    function loadProjectChat(projId) {
+      const container = document.getElementById('project-tab-content');
+      container.innerHTML = \`
+        <div class="glass-card" style="display:flex; flex-direction:column; gap:12px;">
+          <div id="chat-messages" class="chat-box"></div>
+          <form onsubmit="sendProjectMessage(event, '\${projId}')" style="display:flex; gap:8px;">
+            <input id="proj-msg-input" placeholder="Type a message to the team..." style="flex:1;" />
+            <button type="submit" class="btn btn-primary">Send</button>
+          </form>
+        </div>
+      \`;
+      const msgs = store.messages.filter(m => m.projectId === projId);
+      const box = document.getElementById('chat-messages');
+      if (msgs.length === 0) {
+        box.innerHTML = '<div style="text-align:center; color:#6b7280; margin:auto;">No messages yet. Say hello! 👋</div>';
+        return;
+      }
+      box.innerHTML = msgs.map(m => {
+        const isMe = currentUser && m.senderId === currentUser.id;
+        const sender = store.users.find(u => u.id === m.senderId) || { name: 'User' };
+        return \`
+          <div style="display:flex; flex-direction:column; align-items:\${isMe ? 'flex-end' : 'flex-start'};">
+            <div class="text-muted text-xs" style="margin-bottom:2px;">\${escapeHtml(sender.name)}</div>
+            <div class="msg-bubble \${isMe ? 'msg-me' : 'msg-other'}">\${escapeHtml(m.content)}</div>
+          </div>
+        \`;
+      }).join('');
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function sendProjectMessage(e, projId) {
+      e.preventDefault();
+      const input = document.getElementById('proj-msg-input');
+      const content = input.value.trim();
+      if (!content || !currentUser) return;
+      input.value = '';
+      store.messages.push({
+        id: "msg_" + Date.now(),
+        projectId: projId,
+        senderId: currentUser.id,
+        content: content,
+        createdAt: new Date().toISOString()
+      });
+      saveStore(store);
+      loadProjectChat(projId);
+    }
+
+    // --- KANBAN TASKS ---
+    function loadProjectTasks(projId) {
+      const container = document.getElementById('project-tab-content');
+      container.innerHTML = \`
+        <div style="display:flex; flex-direction:column; gap:16px;">
+          <div class="flex justify-between items-center">
+            <h3 style="font-weight:600;">Project Tasks</h3>
+            <button onclick="showCreateTaskModal('\${projId}')" class="btn btn-primary btn-sm">+ Add Task</button>
+          </div>
+          <div id="tasks-board" class="grid grid-kanban"></div>
+        </div>
+      \`;
+      const tasks = store.tasks.filter(t => t.projectId === projId);
+      const todo = tasks.filter(t => t.status === 'TODO');
+      const inProgress = tasks.filter(t => t.status === 'IN_PROGRESS');
+      const done = tasks.filter(t => t.status === 'DONE');
+
+      document.getElementById('tasks-board').innerHTML = \`
+        \${renderTaskCol('To Do', todo, 'TODO', projId)}
+        \${renderTaskCol('In Progress', inProgress, 'IN_PROGRESS', projId)}
+        \${renderTaskCol('Done', done, 'DONE', projId)}
+      \`;
+    }
+
+    function renderTaskCol(title, list, status, projId) {
+      return \`
+        <div class="glass-card" style="display:flex; flex-direction:column; gap:10px;">
+          <div class="flex justify-between items-center text-xs" style="font-weight:bold; color:#9ca3af; text-transform:uppercase;">
+            <span>\${title}</span>
+            <span class="badge">\${list.length}</span>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            \${list.length === 0 ? '<div class="text-muted text-xs" style="text-align:center; padding:12px;">No tasks</div>' : ''}
+            \${list.map(t => {
+              const assignee = store.users.find(u => u.id === t.assigneeId);
+              return \`
+                <div style="background:#111827; border:1px solid #1f2937; border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:6px;">
+                  <div style="font-size:0.875rem; font-weight:500;">\${escapeHtml(t.title)}</div>
+                  \${t.description ? \`<div class="text-muted text-xs">\${escapeHtml(t.description)}</div>\` : ''}
+                  <div class="flex justify-between items-center text-xs" style="margin-top:4px;">
+                    <span class="text-muted">\${assignee ? '👤 ' + escapeHtml(assignee.name) : 'Unassigned'}</span>
+                    <select onchange="updateTaskStatus('\${t.id}', this.value, '\${projId}')" style="width:auto; padding:2px 6px; font-size:10px;">
+                      <option value="TODO" \${t.status === 'TODO' ? 'selected' : ''}>To Do</option>
+                      <option value="IN_PROGRESS" \${t.status === 'IN_PROGRESS' ? 'selected' : ''}>In Progress</option>
+                      <option value="DONE" \${t.status === 'DONE' ? 'selected' : ''}>Done</option>
+                    </select>
+                  </div>
+                </div>
+              \`;
+            }).join('')}
+          </div>
+        </div>
+      \`;
+    }
+
+    function updateTaskStatus(taskId, status, projId) {
+      const t = store.tasks.find(x => x.id === taskId);
+      if (t) { t.status = status; saveStore(store); }
+      loadProjectTasks(projId);
+    }
+
+    function showCreateTaskModal(projId) {
+      const title = prompt("Task title:");
+      if (!title) return;
+      const description = prompt("Task description (optional):") || "";
+      store.tasks.push({
+        id: "t_" + Date.now(),
+        projectId: projId,
+        title,
+        description,
+        status: "TODO",
+        assigneeId: currentUser ? currentUser.id : null
+      });
+      saveStore(store);
+      loadProjectTasks(projId);
+    }
+
+    // --- POLLS ---
+    function loadProjectPolls(projId) {
+      const container = document.getElementById('project-tab-content');
+      container.innerHTML = \`
+        <div style="display:flex; flex-direction:column; gap:16px;">
+          <div class="flex justify-between items-center">
+            <h3 style="font-weight:600;">Team Polls</h3>
+            <button onclick="showCreatePollModal('\${projId}')" class="btn btn-primary btn-sm">+ Create Poll</button>
+          </div>
+          <div id="polls-list" style="display:flex; flex-direction:column; gap:12px;"></div>
+        </div>
+      \`;
+      const polls = store.polls.filter(p => p.projectId === projId);
+      const box = document.getElementById('polls-list');
+      if (polls.length === 0) {
+        box.innerHTML = '<div class="glass-card" style="text-align:center; padding:30px; color:#6b7280;">No polls created yet.</div>';
+        return;
+      }
+      box.innerHTML = polls.map(p => {
+        const votes = store.pollVotes.filter(v => v.pollId === p.id);
+        const totalVotes = votes.length;
+        const userVote = currentUser ? votes.find(v => v.userId === currentUser.id)?.optionIndex : null;
+
+        return \`
+          <div class="glass-card" style="display:flex; flex-direction:column; gap:12px;">
+            <div style="font-size:1rem; font-weight:600;">\${escapeHtml(p.question)}</div>
+            <div class="text-muted text-xs">\${totalVotes} voter\${totalVotes !== 1 ? 's' : ''}</div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              \${p.options.map((opt, idx) => {
+                const count = votes.filter(v => v.optionIndex === idx).length;
+                const pct = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
+                const hasVoted = userVote === idx;
+                return \`
+                  <button onclick="votePoll('\${p.id}', \${idx}, '\${projId}')" class="btn btn-secondary flex justify-between items-center" style="text-align:left; padding:10px 14px; position:relative; overflow:hidden;">
+                    <div style="position:absolute; top:0; left:0; bottom:0; width:\${pct}%; background:rgba(99, 102, 241, 0.2);"></div>
+                    <span style="position:relative; z-index:2;">\${escapeHtml(opt)} \${hasVoted ? '✓' : ''}</span>
+                    <span class="text-muted text-xs" style="position:relative; z-index:2;">\${count} votes (\${pct}%)</span>
+                  </button>
+                \`;
+              }).join('')}
+            </div>
+          </div>
+        \`;
+      }).join('');
+    }
+
+    function votePoll(pollId, idx, projId) {
+      if (!currentUser) return;
+      const existing = store.pollVotes.find(v => v.pollId === pollId && v.userId === currentUser.id);
+      if (existing) { existing.optionIndex = idx; }
+      else { store.pollVotes.push({ pollId, userId: currentUser.id, optionIndex: idx }); }
+      saveStore(store);
+      loadProjectPolls(projId);
+    }
+
+    function showCreatePollModal(projId) {
+      const question = prompt("Poll question:");
+      if (!question) return;
+      const opt1 = prompt("Option 1:");
+      const opt2 = prompt("Option 2:");
+      if (!opt1 || !opt2) return;
+      store.polls.push({
+        id: "poll_" + Date.now(),
+        projectId: projId,
+        question,
+        options: [opt1, opt2]
+      });
+      saveStore(store);
+      loadProjectPolls(projId);
+    }
+
+    // --- MEDIA ---
+    function loadProjectMedia(projId) {
+      const container = document.getElementById('project-tab-content');
+      container.innerHTML = \`
+        <div style="display:flex; flex-direction:column; gap:16px;">
+          <div class="flex justify-between items-center">
+            <h3 style="font-weight:600;">Media & Resources</h3>
+            <button onclick="showAddMediaModal('\${projId}')" class="btn btn-primary btn-sm">+ Add Resource</button>
+          </div>
+          <div id="media-grid" class="grid grid-3"></div>
+        </div>
+      \`;
+      const items = store.media.filter(m => m.projectId === projId);
+      const grid = document.getElementById('media-grid');
+      if (items.length === 0) {
+        grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:30px; color:#6b7280;">No resources shared yet.</div>';
+        return;
+      }
+      grid.innerHTML = items.map(m => \`
+        <a href="\${escapeHtml(m.url)}" target="_blank" class="glass-card" style="text-decoration:none; color:inherit; display:flex; gap:12px; align-items:flex-start;">
+          <div style="font-size:1.5rem;">🔗</div>
+          <div style="overflow:hidden;">
+            <div style="font-weight:500; font-size:0.875rem; color:#f3f4f6;">\${escapeHtml(m.name)}</div>
+            <div class="text-muted text-xs" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">\${escapeHtml(m.url)}</div>
+          </div>
+        </a>
+      \`).join('');
+    }
+
+    function showAddMediaModal(projId) {
+      const name = prompt("Resource name:");
+      const url = prompt("Resource URL (https://...):");
+      if (!url) return;
+      store.media.push({
+        id: "med_" + Date.now(),
+        projectId: projId,
+        name: name || url,
+        url
+      });
+      saveStore(store);
+      loadProjectMedia(projId);
+    }
+
+    // --- PROGRESS ---
+    function loadProjectProgress(projId) {
+      const container = document.getElementById('project-tab-content');
+      const tasks = store.tasks.filter(t => t.projectId === projId);
+      const total = tasks.length;
+      const done = tasks.filter(t => t.status === 'DONE').length;
+      const inProgress = tasks.filter(t => t.status === 'IN_PROGRESS').length;
+      const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+      container.innerHTML = \`
+        <div class="glass-card" style="display:flex; flex-direction:column; gap:20px;">
+          <h3 style="font-weight:600;">Milestone & Progress Overview</h3>
+          <div class="grid grid-3">
+            <div class="glass-card" style="text-align:center; background:#111827;">
+              <div style="font-size:1.75rem; font-weight:bold;">\${total}</div>
+              <div class="text-muted text-xs">Total Tasks</div>
+            </div>
+            <div class="glass-card" style="text-align:center; background:#111827;">
+              <div style="font-size:1.75rem; font-weight:bold; color:#eab308;">\${inProgress}</div>
+              <div class="text-muted text-xs">In Progress</div>
+            </div>
+            <div class="glass-card" style="text-align:center; background:#111827;">
+              <div style="font-size:1.75rem; font-weight:bold; color:#22c55e;">\${done}</div>
+              <div class="text-muted text-xs">Completed</div>
+            </div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <div class="flex justify-between text-xs" style="font-weight:500;">
+              <span>Overall Completion</span>
+              <span>\${pct}%</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill" style="width:\${pct}%;"></div>
+            </div>
+          </div>
+        </div>
+      \`;
+    }
+
+    // --- REQUESTS ---
+    function loadProjectRequests(projId) {
+      const container = document.getElementById('project-tab-content');
+      const requests = store.joinRequests.filter(r => r.projectId === projId && r.status === 'PENDING');
+      container.innerHTML = \`
+        <div class="glass-card" style="display:flex; flex-direction:column; gap:16px;">
+          <h3 style="font-weight:600;">Pending Join Requests (\${requests.length})</h3>
+          \${requests.length === 0 ? '<div class="text-muted text-sm" style="text-align:center; padding:20px;">No pending join requests</div>' : ''}
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            \${requests.map(r => {
+              const u = store.users.find(x => x.id === r.userId) || { name: 'User' };
+              return \`
+                <div class="flex justify-between items-center" style="background:#111827; padding:12px 16px; border-radius:8px; border:1px solid #1f2937;">
+                  <div>
+                    <div style="font-weight:500;">\${escapeHtml(u.name)}</div>
+                    <div class="text-muted text-xs">\${escapeHtml(u.school || '')}</div>
+                  </div>
+                  <div style="display:flex; gap:8px;">
+                    <button onclick="handleJoinRequest('\${r.id}', 'DENIED', '\${projId}')" class="btn btn-secondary btn-sm" style="color:#ef4444;">Deny</button>
+                    <button onclick="handleJoinRequest('\${r.id}', 'APPROVED', '\${projId}')" class="btn btn-primary btn-sm" style="background:#16a34a;">Approve</button>
+                  </div>
+                </div>
+              \`;
+            }).join('')}
+          </div>
+        </div>
+      \`;
+    }
+
+    function handleJoinRequest(reqId, action, projId) {
+      const r = store.joinRequests.find(x => x.id === reqId);
+      if (r) {
+        r.status = action;
+        if (action === 'APPROVED') {
+          store.members.push({ projectId: projId, userId: r.userId });
+        }
+        saveStore(store);
+      }
+      showToast(action === 'APPROVED' ? 'Member approved!' : 'Denied');
+      loadProjectRequests(projId);
+    }
+
+    // --- CREATE PROJECT ---
+    function renderNewProjectView() {
+      if (!currentUser) { navigate('login'); return; }
+      const root = document.getElementById('app-root');
+      root.innerHTML = \`
+        <div class="glass-card" style="max-width:600px; margin:0 auto; display:flex; flex-direction:column; gap:16px;">
+          <h1 style="font-size:1.5rem; font-weight:bold;">Create a New Project</h1>
+          <form onsubmit="submitNewProject(event)" style="display:flex; flex-direction:column; gap:14px;">
+            <div>
+              <label class="text-xs" style="margin-bottom:4px; display:block;">Project Name</label>
+              <input id="new-proj-name" required placeholder="e.g. Autonomous Drone Swarm" />
+            </div>
+            <div>
+              <label class="text-xs" style="margin-bottom:4px; display:block;">Description</label>
+              <textarea id="new-proj-desc" required rows="3" placeholder="What are you building?"></textarea>
+            </div>
+            <div>
+              <label class="text-xs" style="margin-bottom:4px; display:block;">Visibility</label>
+              <select id="new-proj-vis">
+                <option value="PUBLIC">Public (Visible to everyone)</option>
+                <option value="PRIVATE">Private (Direct link only)</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs" style="margin-bottom:4px; display:block;">Tags</label>
+              <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                \${domainTags.map(t => \`<button type="button" onclick="toggleTag('\${t}', this)" class="badge" style="cursor:pointer; padding:6px 10px;">\${t}</button>\`).join('')}
+              </div>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:8px;">
+              <button type="button" onclick="navigate('explore')" class="btn btn-secondary">Cancel</button>
+              <button type="submit" class="btn btn-primary" style="flex:1;">Create Project</button>
+            </div>
+          </form>
+        </div>
+      \`;
+    }
+
+    let selectedTags = [];
+    function toggleTag(t, btn) {
+      if (selectedTags.includes(t)) {
+        selectedTags = selectedTags.filter(x => x !== t);
+        btn.className = 'badge';
+      } else {
+        selectedTags.push(t);
+        btn.className = 'badge badge-indigo';
+      }
+    }
+
+    function submitNewProject(e) {
+      e.preventDefault();
+      const name = document.getElementById('new-proj-name').value.trim();
+      const description = document.getElementById('new-proj-desc').value.trim();
+      const visibility = document.getElementById('new-proj-vis').value;
+      const newProj = {
+        id: "p_" + Date.now(),
+        name,
+        description,
+        visibility,
+        tags: selectedTags,
+        leaderId: currentUser.id
+      };
+      store.projects.unshift(newProj);
+      store.members.push({ projectId: newProj.id, userId: currentUser.id });
+      saveStore(store);
+      selectedTags = [];
+      showToast('Project created!');
+      navigate('project', newProj.id);
+    }
+
+    // --- GLOBAL CHAT ---
+    function renderGlobalChatView() {
+      const root = document.getElementById('app-root');
+      root.innerHTML = \`
+        <div style="max-w:800px; margin:0 auto; display:flex; flex-direction:column; gap:16px;">
+          <div class="flex justify-between items-center">
+            <div>
+              <h1 style="font-size:1.5rem; font-weight:bold;">Global Community Chat</h1>
+              <p class="text-muted text-xs">Live chat for makers</p>
+            </div>
+            <span class="badge badge-green">Active</span>
+          </div>
+          <div class="glass-card" style="display:flex; flex-direction:column; gap:12px;">
+            <div id="global-chat-messages" class="chat-box"></div>
+            <form onsubmit="sendGlobalMessage(event)" style="display:flex; gap:8px;">
+              <input id="global-msg-input" placeholder="\${currentUser ? 'Send a message to the community...' : 'Sign in to participate...'}" \${!currentUser ? 'disabled' : ''} style="flex:1;" />
+              <button type="submit" \${!currentUser ? 'disabled' : ''} class="btn btn-primary">Send</button>
+            </form>
+          </div>
+        </div>
+      \`;
+      loadGlobalChat();
+    }
+
+    function loadGlobalChat() {
+      const msgs = store.messages.filter(m => !m.projectId);
+      const box = document.getElementById('global-chat-messages');
+      if (!box) return;
+      if (msgs.length === 0) {
+        box.innerHTML = '<div style="text-align:center; color:#6b7280; margin:auto;">No messages yet. Be the first to say hi! 🌐</div>';
+        return;
+      }
+      box.innerHTML = msgs.map(m => {
+        const isMe = currentUser && m.senderId === currentUser.id;
+        const sender = store.users.find(u => u.id === m.senderId) || { name: 'User' };
+        return \`
+          <div style="display:flex; flex-direction:column; align-items:\${isMe ? 'flex-end' : 'flex-start'};">
+            <div class="text-muted text-xs" style="margin-bottom:2px;">\${escapeHtml(sender.name)}</div>
+            <div class="msg-bubble \${isMe ? 'msg-me' : 'msg-other'}">\${escapeHtml(m.content)}</div>
+          </div>
+        \`;
+      }).join('');
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function sendGlobalMessage(e) {
+      e.preventDefault();
+      if (!currentUser) return;
+      const input = document.getElementById('global-msg-input');
+      const content = input.value.trim();
+      if (!content) return;
+      input.value = '';
+      store.messages.push({
+        id: "msg_" + Date.now(),
+        projectId: null,
+        senderId: currentUser.id,
+        content: content,
+        createdAt: new Date().toISOString()
+      });
+      saveStore(store);
+      loadGlobalChat();
+    }
+
+    // --- PROFILE ---
+    function renderProfileView(userId) {
+      const root = document.getElementById('app-root');
+      const user = store.users.find(u => u.id === userId) || currentUser;
+      if (!user) { root.innerHTML = '<div style="text-align:center; padding:40px;">User not found</div>'; return; }
+      const isMe = currentUser && currentUser.id === user.id;
+      const userProjects = store.projects.filter(p => p.leaderId === user.id);
+
+      root.innerHTML = \`
+        <div style="max-width:700px; margin:0 auto; display:flex; flex-direction:column; gap:20px;">
+          <div class="glass-card" style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div style="display:flex; gap:16px; align-items:center;">
+              <div style="width:56px; height:56px; border-radius:12px; background:#6366f1; font-size:1.5rem; font-weight:bold; color:white; display:flex; align-items:center; justify-content:center;">\${user.name.slice(0, 1).toUpperCase()}</div>
+              <div>
+                <h1 style="font-size:1.5rem; font-weight:bold;">\${escapeHtml(user.name)}</h1>
+                \${user.school ? \`<div class="text-muted text-sm">🎓 \${escapeHtml(user.school)}</div>\` : ''}
+              </div>
+            </div>
+            \${isMe ? \`<button onclick="editProfile()" class="btn btn-secondary btn-sm">Edit</button>\` : ''}
+          </div>
+          <div class="glass-card" style="display:flex; flex-direction:column; gap:12px;">
+            <h3 style="font-weight:600;">Projects (\${userProjects.length})</h3>
+            <div class="grid" style="grid-template-columns:1fr;">
+              \${userProjects.length > 0 ? userProjects.map(p => \`
+                <div onclick="navigate('project', '\${p.id}')" style="background:#111827; padding:12px; border-radius:8px; cursor:pointer;">
+                  <div style="font-weight:500;">\${escapeHtml(p.name)}</div>
+                  <div class="text-muted text-xs">\${escapeHtml(p.description)}</div>
+                </div>
+              \`).join('') : '<div class="text-muted text-xs">No projects created yet.</div>'}
+            </div>
+          </div>
+        </div>
+      \`;
+    }
+
+    function editProfile() {
+      const bio = prompt("Update bio:", currentUser.bio || "");
+      if (bio === null) return;
+      const school = prompt("Update school:", currentUser.school || "");
+      currentUser.bio = bio;
+      currentUser.school = school;
+      const u = store.users.find(x => x.id === currentUser.id);
+      if (u) { u.bio = bio; u.school = school; }
+      saveStore(store);
+      renderProfileView(currentUser.id);
+    }
+
+    // --- AUTH ---
+    function renderLoginView() {
+      const root = document.getElementById('app-root');
+      root.innerHTML = \`
+        <div class="glass-card" style="max-width:400px; margin:40px auto; display:flex; flex-direction:column; gap:16px;">
+          <h2 style="font-size:1.5rem; font-weight:bold; text-align:center;">Sign In</h2>
+          <form onsubmit="handleLogin(event)" style="display:flex; flex-direction:column; gap:12px;">
+            <div>
+              <label class="text-xs" style="margin-bottom:4px; display:block;">Email</label>
+              <input id="login-email" type="email" required placeholder="you@example.com" />
+            </div>
+            <div>
+              <label class="text-xs" style="margin-bottom:4px; display:block;">Password</label>
+              <input id="login-password" type="password" required placeholder="••••••••" />
+            </div>
+            <button type="submit" class="btn btn-primary" style="margin-top:8px;">Sign In</button>
+          </form>
+          <div style="text-align:center; font-size:0.75rem; color:#9ca3af;">
+            Don't have an account? <button onclick="navigate('register')" class="btn btn-secondary btn-sm">Sign Up</button>
+          </div>
+        </div>
+      \`;
+    }
+
+    function handleLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value.trim();
+      const u = store.users.find(x => x.email.toLowerCase() === email.toLowerCase());
+      if (!u) {
+        showToast("User not found. Please sign up first!", true);
+        return;
+      }
+      currentUser = u;
+      store.currentUser = u;
+      saveStore(store);
+      renderNavAuth();
+      showToast('Welcome back, ' + u.name + '!');
+      navigate('explore');
+    }
+
+    function renderRegisterView() {
+      const root = document.getElementById('app-root');
+      root.innerHTML = \`
+        <div class="glass-card" style="max-width:400px; margin:40px auto; display:flex; flex-direction:column; gap:16px;">
+          <h2 style="font-size:1.5rem; font-weight:bold; text-align:center;">Create Account</h2>
+          <form onsubmit="handleRegister(event)" style="display:flex; flex-direction:column; gap:12px;">
+            <div>
+              <label class="text-xs" style="margin-bottom:4px; display:block;">Full Name</label>
+              <input id="reg-name" required placeholder="Alex Rivera" />
+            </div>
+            <div>
+              <label class="text-xs" style="margin-bottom:4px; display:block;">Email</label>
+              <input id="reg-email" type="email" required placeholder="you@example.com" />
+            </div>
+            <div>
+              <label class="text-xs" style="margin-bottom:4px; display:block;">Password</label>
+              <input id="reg-password" type="password" required placeholder="••••••••" />
+            </div>
+            <div>
+              <label class="text-xs" style="margin-bottom:4px; display:block;">School / Institution</label>
+              <input id="reg-school" placeholder="MIT, Stanford, etc." />
+            </div>
+            <button type="submit" class="btn btn-primary" style="margin-top:8px;">Sign Up</button>
+          </form>
+          <div style="text-align:center; font-size:0.75rem; color:#9ca3af;">
+            Already registered? <button onclick="navigate('login')" class="btn btn-secondary btn-sm">Sign In</button>
+          </div>
+        </div>
+      \`;
+    }
+
+    function handleRegister(e) {
+      e.preventDefault();
+      const name = document.getElementById('reg-name').value.trim();
+      const email = document.getElementById('reg-email').value.trim();
+      const school = document.getElementById('reg-school').value.trim();
+
+      const existing = store.users.find(u => u.email.toLowerCase() === email.toLowerCase());
+      if (existing) { showToast("Email already exists!", true); return; }
+
+      const newUser = {
+        id: "u_" + Date.now(),
+        name,
+        email,
+        school
+      };
+      store.users.push(newUser);
+      store.currentUser = newUser;
+      currentUser = newUser;
+      saveStore(store);
+      renderNavAuth();
+      showToast('Account created!');
+      navigate('explore');
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/[&<>"']/g, function(m) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+      });
+    }
+
+    renderNavAuth();
+    navigate('explore');
+  </script>
+</body>
+</html>
