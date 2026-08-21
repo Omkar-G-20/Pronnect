@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pronnect — Project Collaboration & Team Discovery</title>
+  <title>Pronnect — Discover Teams & Build Projects</title>
   <meta name="description" content="Pronnect is a collaboration platform to discover project teammates, manage tasks, and build open projects.">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -34,6 +34,7 @@
     .badge-indigo { background: rgba(99, 102, 241, 0.15); border-color: rgba(99, 102, 241, 0.3); color: #a5b4fc; }
     .badge-green { background: rgba(34, 197, 94, 0.15); border-color: rgba(34, 197, 94, 0.3); color: #86efac; }
     .badge-yellow { background: rgba(234, 179, 8, 0.15); border-color: rgba(234, 179, 8, 0.3); color: #fde047; }
+    .badge-red { background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.3); color: #fca5a5; }
     
     input, textarea, select { width: 100%; padding: 10px 14px; background: #111827; border: 1px solid #374151; border-radius: 8px; color: #f9fafb; font-size: 0.875rem; outline: none; transition: border-color 0.2s; }
     input:focus, textarea:focus, select:focus { border-color: #6366f1; }
@@ -44,6 +45,8 @@
     .btn-secondary { background: #1f2937; color: #e5e7eb; border: 1px solid #374151; }
     .btn-secondary:hover { background: #374151; }
     .btn-sm { padding: 6px 12px; font-size: 0.75rem; }
+    .btn-danger { background: #dc2626; color: white; }
+    .btn-danger:hover { background: #b91c1c; }
     
     .chat-box { height: 460px; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; background: #0b0f19; border-radius: 8px; }
     .msg-bubble { padding: 8px 14px; border-radius: 16px; max-width: 80%; font-size: 0.875rem; }
@@ -56,11 +59,15 @@
     #toast-root { position: fixed; bottom: 20px; right: 20px; z-index: 100; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
     .toast { padding: 12px 18px; border-radius: 8px; font-size: 0.875rem; background: #111827; border: 1px solid #6366f1; color: white; box-shadow: 0 10px 25px rgba(0,0,0,0.5); pointer-events: auto; }
     .toast-err { border-color: #ef4444; background: #450a0a; }
+
+    /* Modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 999; padding: 16px; }
+    .modal-content { background: #111827; border: 1px solid #374151; border-radius: 12px; width: 100%; max-width: 440px; padding: 24px; }
   </style>
 </head>
 <body>
-  <!-- NAV -->
-  <nav>
+  <!-- NAV (HIDDEN WHEN NOT LOGGED IN) -->
+  <nav id="app-nav" style="display:none;">
     <div class="nav-inner">
       <div style="display:flex; align-items:center; gap:20px;">
         <div onclick="navigate('explore')" style="display:flex; align-items:center; gap:8px; cursor:pointer;">
@@ -82,37 +89,39 @@
   <div id="toast-root"></div>
 
   <script>
-    const STORAGE_KEY = "pronnect_workspace_state";
-    
-    function getStore() {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        try { return JSON.parse(saved); } catch (e) {}
-      }
-      return {
-        users: [],
-        projects: [],
-        members: [],
-        joinRequests: [],
-        tasks: [],
-        polls: [],
-        pollVotes: [],
-        messages: [],
-        media: [],
-        currentUser: null
-      };
-    }
+    // --- SHARED REAL-TIME CLOUD STORAGE BRIDGE (FOR MULTI-PROFILE & CROSS-DEVICE SYNC) ---
+    const CLOUD_SYNC_ENDPOINT = "https://kvdb.io/A95b1gJtqZ3zH5mK1n9q7W/pronnect_global_state_v1";
+    const LOCAL_CACHE_KEY = "pronnect_cached_state_v1";
 
-    function saveStore(store) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
-    }
+    let store = {
+      users: [],
+      projects: [],
+      members: [],
+      joinRequests: [],
+      tasks: [],
+      polls: [],
+      pollVotes: [],
+      messages: [],
+      media: []
+    };
 
-    let store = getStore();
-    let currentUser = store.currentUser;
-    let currentView = 'explore';
+    let currentUser = null;
+    let currentView = 'auth';
+    let authMode = 'login'; // 'login' or 'register'
     let activeProjectId = null;
     let activeProjectTab = 'chat';
+    let isSyncing = false;
     let domainTags = ["AI/ML", "Web Dev", "Mobile", "Embedded Systems", "Robotics", "IoT", "Cybersecurity", "Data Science", "Research"];
+
+    // Load local cache immediately
+    const cached = localStorage.getItem(LOCAL_CACHE_KEY);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (parsed.store) store = parsed.store;
+        if (parsed.currentUser) currentUser = parsed.currentUser;
+      } catch (e) {}
+    }
 
     function showToast(msg, isError = false) {
       const root = document.getElementById('toast-root');
@@ -123,6 +132,72 @@
       setTimeout(() => { toast.remove(); }, 3500);
     }
 
+    // Save and push to cloud
+    async function saveState() {
+      localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify({ store, currentUser }));
+      try {
+        await fetch(CLOUD_SYNC_ENDPOINT, {
+          method: 'POST',
+          body: JSON.stringify(store)
+        });
+      } catch (err) {}
+    }
+
+    // Pull from cloud
+    async function syncFromCloud() {
+      if (isSyncing) return;
+      isSyncing = true;
+      try {
+        const res = await fetch(CLOUD_SYNC_ENDPOINT);
+        if (res.ok) {
+          const cloudData = await res.json();
+          if (cloudData && typeof cloudData === 'object') {
+            store = {
+              users: cloudData.users || [],
+              projects: cloudData.projects || [],
+              members: cloudData.members || [],
+              joinRequests: cloudData.joinRequests || [],
+              tasks: cloudData.tasks || [],
+              polls: cloudData.polls || [],
+              pollVotes: cloudData.pollVotes || [],
+              messages: cloudData.messages || [],
+              media: cloudData.media || []
+            };
+            localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify({ store, currentUser }));
+            
+            // Re-render active view
+            if (currentView === 'explore') loadProjects();
+            if (currentView === 'global-chat') loadGlobalChat();
+            if (currentView === 'project' && activeProjectId) {
+              if (activeProjectTab === 'chat') loadProjectChat(activeProjectId);
+              if (activeProjectTab === 'tasks') loadProjectTasks(activeProjectId);
+              if (activeProjectTab === 'polls') loadProjectPolls(activeProjectId);
+              if (activeProjectTab === 'media') loadProjectMedia(activeProjectId);
+              if (activeProjectTab === 'progress') loadProjectProgress(activeProjectId);
+            }
+          }
+        }
+      } catch (e) {}
+      finally {
+        isSyncing = false;
+      }
+    }
+
+    // Polling sync every 3 seconds for live multi-profile updates
+    setInterval(syncFromCloud, 3000);
+
+    function init() {
+      syncFromCloud().then(() => {
+        if (!currentUser) {
+          renderAuthGate();
+        } else {
+          document.getElementById('app-nav').style.display = 'block';
+          renderNavAuth();
+          navigate('explore');
+        }
+      });
+    }
+
     function renderNavAuth() {
       const container = document.getElementById('nav-auth');
       if (currentUser) {
@@ -131,45 +206,184 @@
             <div style="width:20px; height:20px; border-radius:50%; background:#6366f1; color:white; font-size:10px; display:flex; align-items:center; justify-content:center; font-weight:bold;">${currentUser.name.slice(0, 1).toUpperCase()}</div>
             <span>${escapeHtml(currentUser.name)}</span>
           </button>
-          <button onclick="logout()" class="btn btn-secondary btn-sm" style="color:#ef4444;">Switch Profile</button>
-        `;
-      } else {
-        container.innerHTML = `
-          <button onclick="navigate('join')" class="btn btn-primary">Join / Set Profile</button>
+          <button onclick="logout()" class="btn btn-secondary btn-sm" style="color:#ef4444;">Log Out</button>
         `;
       }
     }
 
     function logout() {
-      store.currentUser = null;
       currentUser = null;
-      saveStore(store);
-      renderNavAuth();
-      showToast('Profile switched');
-      navigate('join');
+      localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify({ store, currentUser: null }));
+      document.getElementById('app-nav').style.display = 'none';
+      showToast('Logged out');
+      renderAuthGate();
     }
 
     function navigate(view, param = null) {
+      if (!currentUser) {
+        renderAuthGate();
+        return;
+      }
       currentView = view;
       if (view === 'explore') renderExploreView();
-      else if (view === 'join') renderJoinView();
       else if (view === 'new-project') renderNewProjectView();
       else if (view === 'project') renderProjectView(param);
       else if (view === 'global-chat') renderGlobalChatView();
-      else if (view === 'profile') renderProfileView(param || (currentUser ? currentUser.id : null));
+      else if (view === 'profile') renderProfileView(param || currentUser.id);
     }
 
-    // --- 1. EXPLORE ---
+    // --- MANDATORY COMPULSORY LOGIN & SIGNUP SCREEN ---
+    function renderAuthGate() {
+      currentView = 'auth';
+      document.getElementById('app-nav').style.display = 'none';
+      const root = document.getElementById('app-root');
+
+      if (authMode === 'login') {
+        root.innerHTML = `
+          <div style="min-height:75vh; display:flex; align-items:center; justify-content:center;">
+            <div class="glass-card" style="width:100%; max-width:420px; display:flex; flex-direction:column; gap:20px;">
+              <div style="text-align:center;">
+                <div style="width:48px; height:48px; border-radius:12px; background:#6366f1; margin:0 auto 12px; display:flex; align-items:center; justify-content:center; font-size:1.5rem; font-weight:bold; color:white;">P</div>
+                <h1 class="gradient-text" style="font-size:1.75rem; margin-bottom:4px;">Pronnect</h1>
+                <p class="text-muted text-xs">Enter your credentials to access the platform</p>
+              </div>
+
+              <form onsubmit="handleAuthLogin(event)" style="display:flex; flex-direction:column; gap:14px;">
+                <div>
+                  <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Email or Username</label>
+                  <input id="auth-email" required placeholder="name@example.com or handle" />
+                </div>
+                <div>
+                  <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Account Password / PIN</label>
+                  <input id="auth-password" type="password" required placeholder="••••••••" />
+                </div>
+                <button type="submit" class="btn btn-primary" style="padding:12px; margin-top:6px; font-weight:bold;">Sign In &rarr;</button>
+              </form>
+
+              <div style="text-align:center; font-size:0.75rem; color:#9ca3af; border-top:1px solid #1f2937; padding-top:12px;">
+                New to Pronnect? <button onclick="switchAuthMode('register')" class="btn btn-secondary btn-sm" style="margin-left:6px;">Create Account</button>
+              </div>
+            </div>
+          </div>
+        `;
+      } else {
+        root.innerHTML = `
+          <div style="min-height:75vh; display:flex; align-items:center; justify-content:center;">
+            <div class="glass-card" style="width:100%; max-width:440px; display:flex; flex-direction:column; gap:20px;">
+              <div style="text-align:center;">
+                <div style="width:48px; height:48px; border-radius:12px; background:#6366f1; margin:0 auto 12px; display:flex; align-items:center; justify-content:center; font-size:1.5rem; font-weight:bold; color:white;">P</div>
+                <h1 class="gradient-text" style="font-size:1.75rem; margin-bottom:4px;">Create Profile</h1>
+                <p class="text-muted text-xs">Join collaborators and team up on projects</p>
+              </div>
+
+              <form onsubmit="handleAuthRegister(event)" style="display:flex; flex-direction:column; gap:12px;">
+                <div>
+                  <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Full Name / Display Name</label>
+                  <input id="reg-name" required placeholder="e.g. Omkar Gurav" />
+                </div>
+                <div>
+                  <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Email</label>
+                  <input id="reg-email" type="email" required placeholder="name@example.com" />
+                </div>
+                <div>
+                  <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Password / PIN</label>
+                  <input id="reg-password" type="password" required placeholder="Create a password" />
+                </div>
+                <div>
+                  <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">College / School / Organization</label>
+                  <input id="reg-school" placeholder="e.g. Dayananda Sagar College of Engineering" />
+                </div>
+                <button type="submit" class="btn btn-primary" style="padding:12px; margin-top:6px; font-weight:bold;">Create Account &rarr;</button>
+              </form>
+
+              <div style="text-align:center; font-size:0.75rem; color:#9ca3af; border-top:1px solid #1f2937; padding-top:12px;">
+                Already registered? <button onclick="switchAuthMode('login')" class="btn btn-secondary btn-sm" style="margin-left:6px;">Sign In</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    function switchAuthMode(mode) {
+      authMode = mode;
+      renderAuthGate();
+    }
+
+    async function handleAuthLogin(e) {
+      e.preventDefault();
+      const identifier = document.getElementById('auth-email').value.trim().toLowerCase();
+      const password = document.getElementById('auth-password').value;
+
+      // Sync latest data before checking
+      await syncFromCloud();
+
+      const user = store.users.find(u => 
+        (u.email.toLowerCase() === identifier || u.name.toLowerCase() === identifier) && 
+        u.password === password
+      );
+
+      if (!user) {
+        showToast("Invalid credentials. If you haven't registered, click 'Create Account'!", true);
+        return;
+      }
+
+      currentUser = user;
+      document.getElementById('app-nav').style.display = 'block';
+      renderNavAuth();
+      await saveState();
+      showToast("Welcome back, " + user.name + "!");
+      navigate('explore');
+    }
+
+    async function handleAuthRegister(e) {
+      e.preventDefault();
+      const name = document.getElementById('reg-name').value.trim();
+      const email = document.getElementById('reg-email').value.trim().toLowerCase();
+      const password = document.getElementById('reg-password').value;
+      const school = document.getElementById('reg-school').value.trim();
+
+      await syncFromCloud();
+
+      if (store.users.some(u => u.email.toLowerCase() === email)) {
+        showToast("An account with this email already exists! Please Sign In.", true);
+        return;
+      }
+
+      const newUser = {
+        id: "u_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6),
+        name,
+        email,
+        password,
+        school,
+        bio: "",
+        skills: [],
+        createdAt: new Date().toISOString()
+      };
+
+      store.users.push(newUser);
+      currentUser = newUser;
+      document.getElementById('app-nav').style.display = 'block';
+      renderNavAuth();
+      await saveState();
+      showToast("Account created successfully!");
+      navigate('explore');
+    }
+
+    // --- 1. EXPLORE PROJECTS ---
     function renderExploreView() {
       const root = document.getElementById('app-root');
       root.innerHTML = `
         <div style="display:flex; flex-direction:column; gap:20px;">
-          <div class="flex justify-between items-center">
+          <div class="flex justify-between items-center" style="flex-wrap:wrap; gap:12px;">
             <div>
               <h1 style="font-size:1.75rem; font-weight:bold;">Explore Projects</h1>
-              <p class="text-muted text-sm">Discover teams and open collaboration projects</p>
+              <p class="text-muted text-sm">Discover public projects or enter private project passwords to join</p>
             </div>
-            <button onclick="navigate('new-project')" class="btn btn-primary">+ Create Project</button>
+            <div style="display:flex; gap:8px;">
+              <button onclick="promptJoinPrivateProject()" class="btn btn-secondary">🔑 Enter Private Project</button>
+              <button onclick="navigate('new-project')" class="btn btn-primary">+ Create Project</button>
+            </div>
           </div>
 
           <div class="glass-card" style="display:flex; flex-direction:column; gap:12px;">
@@ -202,7 +416,13 @@
       const search = document.getElementById('search-input')?.value.toLowerCase() || '';
       const school = document.getElementById('school-input')?.value.toLowerCase() || '';
       
-      let list = store.projects.filter(p => p.visibility === 'PUBLIC');
+      // Filter projects: Public OR Projects user is a member of
+      let list = store.projects.filter(p => 
+        p.visibility === 'PUBLIC' || 
+        (currentUser && p.leaderId === currentUser.id) ||
+        (currentUser && store.members.some(m => m.projectId === p.id && m.userId === currentUser.id))
+      );
+
       if (activeTag) list = list.filter(p => p.tags && p.tags.includes(activeTag));
       if (search) list = list.filter(p => p.name.toLowerCase().includes(search) || p.description.toLowerCase().includes(search));
       if (school) {
@@ -219,8 +439,8 @@
         grid.innerHTML = `
           <div style="grid-column:1/-1; text-align:center; padding:60px 20px; color:#9ca3af;">
             <div style="font-size:2.5rem; margin-bottom:10px;">🚀</div>
-            <h3 style="font-size:1.1rem; color:#f3f4f6; margin-bottom:6px;">No projects yet</h3>
-            <p class="text-muted text-sm" style="margin-bottom:16px;">Be the first to start a project and assemble your team!</p>
+            <h3 style="font-size:1.1rem; color:#f3f4f6; margin-bottom:6px;">No projects found</h3>
+            <p class="text-muted text-sm" style="margin-bottom:16px;">Create the first project and invite team members across different profiles!</p>
             <button onclick="navigate('new-project')" class="btn btn-primary">+ Create Project</button>
           </div>
         `;
@@ -230,11 +450,16 @@
       grid.innerHTML = list.map(p => {
         const leader = store.users.find(u => u.id === p.leaderId);
         const memberCount = store.members.filter(m => m.projectId === p.id).length || 1;
+        const isPrivate = p.visibility === 'PRIVATE';
+
         return `
-          <div class="glass-card flex flex-col justify-between" style="cursor:pointer;" onclick="navigate('project', '${p.id}')">
+          <div class="glass-card flex flex-col justify-between" style="cursor:pointer;" onclick="handleProjectCardClick('${p.id}')">
             <div>
               <div class="flex justify-between items-center" style="margin-bottom:8px;">
-                <h3 style="font-size:1.1rem; font-weight:600; color:#f3f4f6;">${escapeHtml(p.name)}</h3>
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <h3 style="font-size:1.1rem; font-weight:600; color:#f3f4f6;">${escapeHtml(p.name)}</h3>
+                  ${isPrivate ? '<span class="badge badge-yellow">🔒 Private</span>' : ''}
+                </div>
                 <span class="badge">${memberCount} member${memberCount !== 1 ? 's' : ''}</span>
               </div>
               <p class="text-muted text-sm" style="margin-bottom:12px;">${escapeHtml(p.description)}</p>
@@ -247,11 +472,60 @@
                 <div>Led by <strong>${leader ? escapeHtml(leader.name) : 'Leader'}</strong></div>
                 ${leader && leader.school ? `<div>🎓 ${escapeHtml(leader.school)}</div>` : ''}
               </div>
-              <button class="btn btn-secondary btn-sm">View &rarr;</button>
+              <button class="btn btn-secondary btn-sm">${isPrivate ? 'Unlock &rarr;' : 'Open &rarr;'}</button>
             </div>
           </div>
         `;
       }).join('');
+    }
+
+    function handleProjectCardClick(projId) {
+      const p = store.projects.find(x => x.id === projId);
+      if (!p) return;
+
+      const isLeader = currentUser && p.leaderId === currentUser.id;
+      const isMember = isLeader || (currentUser && store.members.some(m => m.projectId === p.id && m.userId === currentUser.id));
+
+      if (p.visibility === 'PRIVATE' && !isMember) {
+        promptUnlockPrivateProject(projId);
+      } else {
+        navigate('project', projId);
+      }
+    }
+
+    // --- PRIVATE PROJECT PASSWORD UNLOCK ---
+    function promptJoinPrivateProject() {
+      const projNameOrCode = prompt("Enter Project Name or Invite Code:");
+      if (!projNameOrCode) return;
+      const p = store.projects.find(x => 
+        x.name.toLowerCase() === projNameOrCode.trim().toLowerCase() ||
+        (x.inviteCode && x.inviteCode.toUpperCase() === projNameOrCode.trim().toUpperCase())
+      );
+      if (!p) {
+        showToast("Project not found. Check the name or code!", true);
+        return;
+      }
+      promptUnlockPrivateProject(p.id);
+    }
+
+    function promptUnlockPrivateProject(projId) {
+      const p = store.projects.find(x => x.id === projId);
+      if (!p) return;
+
+      const enteredPass = prompt(`🔒 Private Project: "${p.name}"\nEnter the Project Password to join:`);
+      if (enteredPass === null) return;
+
+      if (enteredPass.trim() === (p.password || "").trim()) {
+        // Grant membership
+        if (!store.members.some(m => m.projectId === p.id && m.userId === currentUser.id)) {
+          store.members.push({ projectId: p.id, userId: currentUser.id });
+          saveState();
+        }
+        showToast("Password verified! Welcome to the team.", false);
+        navigate('project', p.id);
+      } else {
+        showToast("Incorrect project password!", true);
+      }
     }
 
     // --- 2. PROJECT DETAIL & WORKSPACE ---
@@ -267,46 +541,43 @@
       const isLeader = currentUser && project.leaderId === currentUser.id;
       const isMember = isLeader || (currentUser && store.members.some(m => m.projectId === project.id && m.userId === currentUser.id));
 
+      if (project.visibility === 'PRIVATE' && !isMember) {
+        promptUnlockPrivateProject(projectId);
+        return;
+      }
+
       root.innerHTML = `
         <div style="display:flex; flex-direction:column; gap:20px;">
           <div class="glass-card flex justify-between items-center" style="flex-wrap:wrap; gap:16px;">
             <div>
               <div style="display:flex; align-items:center; gap:8px;">
                 <h1 style="font-size:1.5rem; font-weight:bold;">${escapeHtml(project.name)}</h1>
-                <span class="badge ${project.visibility === 'PUBLIC' ? 'badge-green' : 'badge-yellow'}">${project.visibility}</span>
+                <span class="badge ${project.visibility === 'PUBLIC' ? 'badge-green' : 'badge-yellow'}">${project.visibility === 'PUBLIC' ? 'Public' : '🔒 Private'}</span>
               </div>
               <p class="text-muted text-sm" style="margin-top:6px;">${escapeHtml(project.description)}</p>
               <div style="display:flex; gap:6px; margin-top:10px;">
                 ${(project.tags || []).map(t => `<span class="badge badge-indigo">${t}</span>`).join('')}
               </div>
             </div>
-            <div>
-              ${!isMember && currentUser ? `<button onclick="requestToJoin('${project.id}')" class="btn btn-primary">Request to Join</button>` : ''}
-              ${!currentUser ? `<button onclick="navigate('join')" class="btn btn-secondary">Set Profile to Join</button>` : ''}
+            <div style="display:flex; gap:8px;">
+              ${!isMember && currentUser && project.visibility === 'PUBLIC' ? `<button onclick="requestToJoin('${project.id}')" class="btn btn-primary">Request to Join</button>` : ''}
+              ${isLeader && project.visibility === 'PRIVATE' ? `<button onclick="alert('Project Password: ' + '${escapeHtml(project.password || 'None')}')" class="btn btn-secondary btn-sm">🔑 View Password</button>` : ''}
             </div>
           </div>
 
-          ${!isMember ? `
-            <div class="glass-card" style="text-align:center; padding:48px; color:#9ca3af;">
-              <div style="font-size:2rem; margin-bottom:8px;">🔒</div>
-              <h3>Members-Only Project Workspace</h3>
-              <p class="text-muted text-sm" style="margin-top:4px;">Join this project to access team chat, tasks, polls, and media.</p>
-            </div>
-          ` : `
-            <div style="display:flex; gap:8px; border-bottom:1px solid #1f2937; padding-bottom:8px; overflow-x:auto;">
-              <button onclick="switchProjectTab('chat')" id="ptab-chat" class="btn btn-primary btn-sm">💬 Team Chat</button>
-              <button onclick="switchProjectTab('tasks')" id="ptab-tasks" class="btn btn-secondary btn-sm">📋 Tasks</button>
-              <button onclick="switchProjectTab('polls')" id="ptab-polls" class="btn btn-secondary btn-sm">📊 Polls</button>
-              <button onclick="switchProjectTab('media')" id="ptab-media" class="btn btn-secondary btn-sm">📁 Media & Links</button>
-              <button onclick="switchProjectTab('progress')" id="ptab-progress" class="btn btn-secondary btn-sm">📈 Progress</button>
-              ${isLeader ? `<button onclick="switchProjectTab('requests')" id="ptab-requests" class="btn btn-secondary btn-sm">👥 Join Requests</button>` : ''}
-            </div>
-            <div id="project-tab-content"></div>
-          `}
+          <div style="display:flex; gap:8px; border-bottom:1px solid #1f2937; padding-bottom:8px; overflow-x:auto;">
+            <button onclick="switchProjectTab('chat')" id="ptab-chat" class="btn btn-primary btn-sm">💬 Team Chat</button>
+            <button onclick="switchProjectTab('tasks')" id="ptab-tasks" class="btn btn-secondary btn-sm">📋 Tasks</button>
+            <button onclick="switchProjectTab('polls')" id="ptab-polls" class="btn btn-secondary btn-sm">📊 Polls</button>
+            <button onclick="switchProjectTab('media')" id="ptab-media" class="btn btn-secondary btn-sm">📁 Media & Links</button>
+            <button onclick="switchProjectTab('progress')" id="ptab-progress" class="btn btn-secondary btn-sm">📈 Progress</button>
+            ${isLeader ? `<button onclick="switchProjectTab('requests')" id="ptab-requests" class="btn btn-secondary btn-sm">👥 Requests</button>` : ''}
+          </div>
+          <div id="project-tab-content"></div>
         </div>
       `;
 
-      if (isMember) switchProjectTab(activeProjectTab || 'chat');
+      switchProjectTab(activeProjectTab || 'chat');
     }
 
     function requestToJoin(projId) {
@@ -320,7 +591,7 @@
         userId: currentUser.id,
         status: "PENDING"
       });
-      saveStore(store);
+      saveState();
       showToast("Join request sent to project leader!");
       renderProjectView(projId);
     }
@@ -339,9 +610,10 @@
       else if (tab === 'requests') loadProjectRequests(activeProjectId);
     }
 
-    // --- CHAT ---
+    // --- TEAM CHAT ---
     function loadProjectChat(projId) {
       const container = document.getElementById('project-tab-content');
+      if (!container) return;
       container.innerHTML = `
         <div class="glass-card" style="display:flex; flex-direction:column; gap:12px;">
           <div id="chat-messages" class="chat-box"></div>
@@ -353,8 +625,9 @@
       `;
       const msgs = store.messages.filter(m => m.projectId === projId);
       const box = document.getElementById('chat-messages');
+      if (!box) return;
       if (msgs.length === 0) {
-        box.innerHTML = '<div style="text-align:center; color:#6b7280; margin:auto;">No messages yet. Say hello! 👋</div>';
+        box.innerHTML = '<div style="text-align:center; color:#6b7280; margin:auto;">No messages yet. Start the team discussion! 👋</div>';
         return;
       }
       box.innerHTML = msgs.map(m => {
@@ -383,13 +656,14 @@
         content: content,
         createdAt: new Date().toISOString()
       });
-      saveStore(store);
+      saveState();
       loadProjectChat(projId);
     }
 
     // --- KANBAN TASKS ---
     function loadProjectTasks(projId) {
       const container = document.getElementById('project-tab-content');
+      if (!container) return;
       container.innerHTML = `
         <div style="display:flex; flex-direction:column; gap:16px;">
           <div class="flex justify-between items-center">
@@ -444,7 +718,7 @@
 
     function updateTaskStatus(taskId, status, projId) {
       const t = store.tasks.find(x => x.id === taskId);
-      if (t) { t.status = status; saveStore(store); }
+      if (t) { t.status = status; saveState(); }
       loadProjectTasks(projId);
     }
 
@@ -460,13 +734,14 @@
         status: "TODO",
         assigneeId: currentUser ? currentUser.id : null
       });
-      saveStore(store);
+      saveState();
       loadProjectTasks(projId);
     }
 
     // --- POLLS ---
     function loadProjectPolls(projId) {
       const container = document.getElementById('project-tab-content');
+      if (!container) return;
       container.innerHTML = `
         <div style="display:flex; flex-direction:column; gap:16px;">
           <div class="flex justify-between items-center">
@@ -515,7 +790,7 @@
       const existing = store.pollVotes.find(v => v.pollId === pollId && v.userId === currentUser.id);
       if (existing) { existing.optionIndex = idx; }
       else { store.pollVotes.push({ pollId, userId: currentUser.id, optionIndex: idx }); }
-      saveStore(store);
+      saveState();
       loadProjectPolls(projId);
     }
 
@@ -531,13 +806,14 @@
         question,
         options: [opt1, opt2]
       });
-      saveStore(store);
+      saveState();
       loadProjectPolls(projId);
     }
 
     // --- MEDIA ---
     function loadProjectMedia(projId) {
       const container = document.getElementById('project-tab-content');
+      if (!container) return;
       container.innerHTML = `
         <div style="display:flex; flex-direction:column; gap:16px;">
           <div class="flex justify-between items-center">
@@ -574,13 +850,14 @@
         name: name || url,
         url
       });
-      saveStore(store);
+      saveState();
       loadProjectMedia(projId);
     }
 
     // --- PROGRESS ---
     function loadProjectProgress(projId) {
       const container = document.getElementById('project-tab-content');
+      if (!container) return;
       const tasks = store.tasks.filter(t => t.projectId === projId);
       const total = tasks.length;
       const done = tasks.filter(t => t.status === 'DONE').length;
@@ -617,9 +894,10 @@
       `;
     }
 
-    // --- REQUESTS ---
+    // --- JOIN REQUESTS ---
     function loadProjectRequests(projId) {
       const container = document.getElementById('project-tab-content');
+      if (!container) return;
       const requests = store.joinRequests.filter(r => r.projectId === projId && r.status === 'PENDING');
       container.innerHTML = `
         <div class="glass-card" style="display:flex; flex-direction:column; gap:16px;">
@@ -653,37 +931,45 @@
         if (action === 'APPROVED') {
           store.members.push({ projectId: projId, userId: r.userId });
         }
-        saveStore(store);
+        saveState();
       }
       showToast(action === 'APPROVED' ? 'Member approved!' : 'Denied');
       loadProjectRequests(projId);
     }
 
-    // --- CREATE PROJECT ---
+    // --- CREATE NEW PROJECT (WITH PRIVATE PASSWORD SUPPORT) ---
     function renderNewProjectView() {
-      if (!currentUser) { navigate('join'); return; }
+      if (!currentUser) { renderAuthGate(); return; }
       const root = document.getElementById('app-root');
       root.innerHTML = `
         <div class="glass-card" style="max-width:600px; margin:0 auto; display:flex; flex-direction:column; gap:16px;">
           <h1 style="font-size:1.5rem; font-weight:bold;">Create a New Project</h1>
           <form onsubmit="submitNewProject(event)" style="display:flex; flex-direction:column; gap:14px;">
             <div>
-              <label class="text-xs" style="margin-bottom:4px; display:block;">Project Name</label>
+              <label class="text-xs text-muted" style="margin-bottom:4px; display:block;">Project Name</label>
               <input id="new-proj-name" required placeholder="e.g. Autonomous Drone Swarm" />
             </div>
             <div>
-              <label class="text-xs" style="margin-bottom:4px; display:block;">Description</label>
+              <label class="text-xs text-muted" style="margin-bottom:4px; display:block;">Description</label>
               <textarea id="new-proj-desc" required rows="3" placeholder="What are you building?"></textarea>
             </div>
             <div>
-              <label class="text-xs" style="margin-bottom:4px; display:block;">Visibility</label>
-              <select id="new-proj-vis">
-                <option value="PUBLIC">Public (Visible to everyone)</option>
-                <option value="PRIVATE">Private (Direct link only)</option>
+              <label class="text-xs text-muted" style="margin-bottom:4px; display:block;">Visibility</label>
+              <select id="new-proj-vis" onchange="togglePrivatePasswordInput(this.value)">
+                <option value="PUBLIC">Public (Visible to everyone in Explore)</option>
+                <option value="PRIVATE">🔒 Private (Protected with Project Password)</option>
               </select>
             </div>
+
+            <!-- Private Project Password Box -->
+            <div id="private-password-box" style="display:none; background:#111827; border:1px solid #6366f1; border-radius:8px; padding:12px;">
+              <label class="text-xs" style="color:#a5b4fc; font-weight:bold; margin-bottom:4px; display:block;">🔑 Set Private Project Password</label>
+              <input id="new-proj-pass" placeholder="Enter password to restrict member access" />
+              <p class="text-muted text-xs" style="margin-top:4px;">Members must enter this password to join and view this project.</p>
+            </div>
+
             <div>
-              <label class="text-xs" style="margin-bottom:4px; display:block;">Tags</label>
+              <label class="text-xs text-muted" style="margin-bottom:4px; display:block;">Domain Tags (Click to select)</label>
               <div style="display:flex; flex-wrap:wrap; gap:6px;">
                 ${domainTags.map(t => `<button type="button" onclick="toggleTag('${t}', this)" class="badge" style="cursor:pointer; padding:6px 10px;">${t}</button>`).join('')}
               </div>
@@ -697,6 +983,17 @@
       `;
     }
 
+    function togglePrivatePasswordInput(vis) {
+      const box = document.getElementById('private-password-box');
+      if (vis === 'PRIVATE') {
+        box.style.display = 'block';
+        document.getElementById('new-proj-pass').required = true;
+      } else {
+        box.style.display = 'none';
+        document.getElementById('new-proj-pass').required = false;
+      }
+    }
+
     let selectedTags = [];
     function toggleTag(t, btn) {
       if (selectedTags.includes(t)) {
@@ -708,24 +1005,30 @@
       }
     }
 
-    function submitNewProject(e) {
+    async function submitNewProject(e) {
       e.preventDefault();
       const name = document.getElementById('new-proj-name').value.trim();
       const description = document.getElementById('new-proj-desc').value.trim();
       const visibility = document.getElementById('new-proj-vis').value;
+      const password = visibility === 'PRIVATE' ? document.getElementById('new-proj-pass').value.trim() : "";
+
       const newProj = {
-        id: "p_" + Date.now(),
+        id: "p_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6),
         name,
         description,
         visibility,
+        password,
+        inviteCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
         tags: selectedTags,
-        leaderId: currentUser.id
+        leaderId: currentUser.id,
+        createdAt: new Date().toISOString()
       };
+
       store.projects.unshift(newProj);
       store.members.push({ projectId: newProj.id, userId: currentUser.id });
-      saveStore(store);
+      await saveState();
       selectedTags = [];
-      showToast('Project created!');
+      showToast('Project created & synced live!');
       navigate('project', newProj.id);
     }
 
@@ -733,19 +1036,19 @@
     function renderGlobalChatView() {
       const root = document.getElementById('app-root');
       root.innerHTML = `
-        <div style="max-w:800px; margin:0 auto; display:flex; flex-direction:column; gap:16px;">
+        <div style="max-width:800px; margin:0 auto; display:flex; flex-direction:column; gap:16px;">
           <div class="flex justify-between items-center">
             <div>
               <h1 style="font-size:1.5rem; font-weight:bold;">Global Community Chat</h1>
-              <p class="text-muted text-xs">Live chat for makers & builders</p>
+              <p class="text-muted text-xs">Live platform-wide chat for all profiles</p>
             </div>
-            <span class="badge badge-green">Active</span>
+            <span class="badge badge-green">Live Cloud Sync</span>
           </div>
           <div class="glass-card" style="display:flex; flex-direction:column; gap:12px;">
             <div id="global-chat-messages" class="chat-box"></div>
             <form onsubmit="sendGlobalMessage(event)" style="display:flex; gap:8px;">
-              <input id="global-msg-input" placeholder="${currentUser ? 'Send a message to the community...' : 'Set your profile to participate...'}" ${!currentUser ? 'disabled' : ''} style="flex:1;" />
-              <button type="submit" ${!currentUser ? 'disabled' : ''} class="btn btn-primary">Send</button>
+              <input id="global-msg-input" placeholder="Type a message to the community..." style="flex:1;" />
+              <button type="submit" class="btn btn-primary">Send</button>
             </form>
           </div>
         </div>
@@ -758,7 +1061,7 @@
       const box = document.getElementById('global-chat-messages');
       if (!box) return;
       if (msgs.length === 0) {
-        box.innerHTML = '<div style="text-align:center; color:#6b7280; margin:auto;">No messages yet. Be the first to say hi! 🌐</div>';
+        box.innerHTML = '<div style="text-align:center; color:#6b7280; margin:auto;">No messages yet. Be the first to say hello to everyone! 🌐</div>';
         return;
       }
       box.innerHTML = msgs.map(m => {
@@ -774,7 +1077,7 @@
       box.scrollTop = box.scrollHeight;
     }
 
-    function sendGlobalMessage(e) {
+    async function sendGlobalMessage(e) {
       e.preventDefault();
       if (!currentUser) return;
       const input = document.getElementById('global-msg-input');
@@ -788,11 +1091,11 @@
         content: content,
         createdAt: new Date().toISOString()
       });
-      saveStore(store);
+      await saveState();
       loadGlobalChat();
     }
 
-    // --- PROFILE ---
+    // --- PROFILE VIEW ---
     function renderProfileView(userId) {
       const root = document.getElementById('app-root');
       const user = store.users.find(u => u.id === userId) || currentUser;
@@ -813,7 +1116,7 @@
             ${isMe ? `<button onclick="editProfile()" class="btn btn-secondary btn-sm">Edit</button>` : ''}
           </div>
           <div class="glass-card" style="display:flex; flex-direction:column; gap:12px;">
-            <h3 style="font-weight:600;">Projects (${userProjects.length})</h3>
+            <h3 style="font-weight:600;">Projects Led (${userProjects.length})</h3>
             <div class="grid" style="grid-template-columns:1fr;">
               ${userProjects.length > 0 ? userProjects.map(p => `
                 <div onclick="navigate('project', '${p.id}')" style="background:#111827; padding:12px; border-radius:8px; cursor:pointer;">
@@ -835,52 +1138,8 @@
       currentUser.school = school;
       const u = store.users.find(x => x.id === currentUser.id);
       if (u) { u.bio = bio; u.school = school; }
-      saveStore(store);
+      saveState();
       renderProfileView(currentUser.id);
-    }
-
-    // --- PROFILE CREATOR / JOIN ---
-    function renderJoinView() {
-      const root = document.getElementById('app-root');
-      root.innerHTML = `
-        <div class="glass-card" style="max-width:440px; margin:40px auto; display:flex; flex-direction:column; gap:16px;">
-          <h2 style="font-size:1.5rem; font-weight:bold; text-align:center;">Join Pronnect</h2>
-          <p class="text-muted text-xs" style="text-align:center;">Set your collaborator profile to start discovering and creating projects.</p>
-          <form onsubmit="handleSetProfile(event)" style="display:flex; flex-direction:column; gap:12px;">
-            <div>
-              <label class="text-xs" style="margin-bottom:4px; display:block;">Your Name / Handle</label>
-              <input id="user-name" required placeholder="Alex Rivera" />
-            </div>
-            <div>
-              <label class="text-xs" style="margin-bottom:4px; display:block;">School / College / Institution</label>
-              <input id="user-school" placeholder="MIT, Stanford, etc." />
-            </div>
-            <button type="submit" class="btn btn-primary" style="margin-top:8px;">Enter Platform</button>
-          </form>
-        </div>
-      `;
-    }
-
-    function handleSetProfile(e) {
-      e.preventDefault();
-      const name = document.getElementById('user-name').value.trim();
-      const school = document.getElementById('user-school').value.trim();
-
-      let existing = store.users.find(u => u.name.toLowerCase() === name.toLowerCase());
-      if (!existing) {
-        existing = {
-          id: "u_" + Date.now(),
-          name,
-          school
-        };
-        store.users.push(existing);
-      }
-      store.currentUser = existing;
-      currentUser = existing;
-      saveStore(store);
-      renderNavAuth();
-      showToast('Welcome, ' + existing.name + '!');
-      navigate('explore');
     }
 
     function escapeHtml(str) {
@@ -890,8 +1149,7 @@
       });
     }
 
-    renderNavAuth();
-    navigate('explore');
+    init();
   </script>
 </body>
 </html>
