@@ -636,8 +636,14 @@ const server = http.createServer(async (req, res) => {
     "Content-Type": "text/html; charset=utf-8",
     "X-Content-Type-Options": "nosniff",
   });
-  res.end(getAppHTML());
+  const indexPath = path.join(__dirname, "index.html");
+  if (fs.existsSync(indexPath)) {
+    res.end(fs.readFileSync(indexPath, "utf-8"));
+  } else {
+    res.end(getAppHTML());
+  }
 });
+
 
 // --- MODERN VANILLA CSS SPA (NO EXTERNAL SCRIPTS / ZERO PHISHING TRIGGERS) ---
 function getAppHTML() {
