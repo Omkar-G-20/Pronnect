@@ -1,7 +1,7 @@
 /**
  * Pronnect - Standalone Zero-NPM Full-Stack Server
- * Runs with 100% pure Node.js built-ins (http, crypto, fs, path, url)
- * No npm, no dependencies, no external downloads required!
+ * Runs with 100% pure Node.js built-ins
+ * Clean inline CSS (zero external CDN scripts to prevent Chrome phishing false-positives)
  */
 
 const http = require("http");
@@ -10,7 +10,7 @@ const path = require("path");
 const crypto = require("crypto");
 const url = require("url");
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 const DB_FILE = path.join(__dirname, "pronnect-local-data.json");
 const ENCRYPTION_KEY_SECRET = "pronnect-standalone-secret-key-32b!";
 
@@ -39,7 +39,6 @@ function loadDB() {
       console.error("Error loading local DB:", e);
     }
   } else {
-    // Seed default sample data
     seedInitialData();
   }
 }
@@ -211,7 +210,11 @@ function parseBody(req) {
 }
 
 function sendJSON(res, data, status = 200, headers = {}) {
-  res.writeHead(status, { "Content-Type": "application/json", ...headers });
+  res.writeHead(status, {
+    "Content-Type": "application/json",
+    "X-Content-Type-Options": "nosniff",
+    ...headers
+  });
   res.end(JSON.stringify(data));
 }
 
@@ -222,10 +225,12 @@ const server = http.createServer(async (req, res) => {
   const method = req.method;
   const user = getUserFromReq(req);
 
-  // CORS headers
+  // Security & CORS headers
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
 
   if (method === "OPTIONS") {
     res.writeHead(200);
@@ -411,7 +416,7 @@ const server = http.createServer(async (req, res) => {
     });
   }
 
-  // Join Requests (GET & POST)
+  // Join Requests
   if (pathname.match(/^\/api\/projects\/([^/]+)\/join-requests$/)) {
     const projId = pathname.split("/")[3];
     if (!user) return sendJSON(res, { error: "Unauthorized" }, 401);
@@ -464,7 +469,7 @@ const server = http.createServer(async (req, res) => {
     const joinReq = db.joinRequests.find((r) => r.id === reqId);
     if (!joinReq) return sendJSON(res, { error: "Not found" }, 404);
 
-    const { action } = await parseBody(req); // "APPROVED" or "DENIED"
+    const { action } = await parseBody(req);
     joinReq.status = action;
 
     if (action === "APPROVED") {
@@ -628,7 +633,6 @@ const server = http.createServer(async (req, res) => {
       const { content } = await parseBody(req);
       if (!content || !content.trim()) return sendJSON(res, { error: "Content required" }, 400);
 
-      // Simple word filter
       let sanitized = content.replace(/\b(spam|abuse)\b/gi, "****");
 
       const newMsg = {
@@ -717,70 +721,106 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
-  // --- SERVE SINGLE-PAGE APP (VANILLA HTML + CSS + JS) ---
-  res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+  // Serve Clean Standalone HTML App
+  res.writeHead(200, {
+    "Content-Type": "text/html; charset=utf-8",
+    "X-Content-Type-Options": "nosniff",
+  });
   res.end(getAppHTML());
 });
 
-// --- BEAUTIFUL MODERN SPA UI (BUILT-IN) ---
+// --- MODERN VANILLA CSS SPA (NO EXTERNAL SCRIPTS / ZERO PHISHING TRIGGERS) ---
 function getAppHTML() {
   return `<!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pronnect — Local Standalone Edition</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            brand: { 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca' }
-          }
-        }
-      }
-    }
-  </script>
+  <title>Pronnect — Local Project Collaboration</title>
   <style>
-    body { background-color: #030712; color: #f9fafb; font-family: ui-sans-serif, system-ui, sans-serif; }
-    .glass { background: rgba(17, 24, 39, 0.75); backdrop-filter: blur(12px); border: 1px solid rgba(55, 65, 81, 0.5); }
-    .glass-card { background: rgba(31, 41, 55, 0.5); backdrop-filter: blur(8px); border: 1px solid rgba(55, 65, 81, 0.4); border-radius: 0.75rem; }
-    .gradient-text { background: linear-gradient(135deg, #6366f1, #a855f7, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .glow-indigo { box-shadow: 0 0 20px rgba(99, 102, 241, 0.25); }
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #111827; }
-    ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background-color: #030712; color: #f9fafb; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.5; min-height: 100vh; display: flex; flex-direction: column; }
+    
+    /* Layout */
+    .container { max-width: 1200px; margin: 0 auto; width: 100%; padding: 24px 16px; flex: 1; }
+    nav { background: rgba(17, 24, 39, 0.85); backdrop-filter: blur(12px); border-bottom: 1px solid #1f2937; position: sticky; top: 0; z-index: 50; padding: 12px 24px; }
+    .nav-inner { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+    .nav-links { display: flex; gap: 8px; align-items: center; }
+    
+    /* Cards & Components */
+    .glass-card { background: rgba(31, 41, 55, 0.5); border: 1px solid #374151; border-radius: 12px; padding: 20px; }
+    .grid { display: grid; gap: 16px; }
+    .grid-3 { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+    .grid-kanban { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    .flex { display: flex; }
+    .flex-col { flex-direction: column; }
+    .items-center { align-items: center; }
+    .justify-between { justify-content: space-between; }
+    .gap-2 { gap: 8px; }
+    .gap-3 { gap: 12px; }
+    .gap-4 { gap: 16px; }
+    
+    /* Typography & Colors */
+    .gradient-text { background: linear-gradient(135deg, #6366f1, #a855f7, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; }
+    .text-sm { font-size: 0.875rem; }
+    .text-xs { font-size: 0.75rem; }
+    .text-muted { color: #9ca3af; }
+    .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 500; background: #1f2937; border: 1px solid #374151; color: #d1d5db; }
+    .badge-indigo { background: rgba(99, 102, 241, 0.15); border-color: rgba(99, 102, 241, 0.3); color: #a5b4fc; }
+    .badge-green { background: rgba(34, 197, 94, 0.15); border-color: rgba(34, 197, 94, 0.3); color: #86efac; }
+    .badge-yellow { background: rgba(234, 179, 8, 0.15); border-color: rgba(234, 179, 8, 0.3); color: #fde047; }
+    
+    /* Form controls */
+    input, textarea, select { width: 100%; padding: 10px 14px; background: #111827; border: 1px solid #374151; border-radius: 8px; color: #f9fafb; font-size: 0.875rem; outline: none; transition: border-color 0.2s; }
+    input:focus, textarea:focus, select:focus { border-color: #6366f1; }
+    button { cursor: pointer; border: none; border-radius: 8px; font-weight: 500; font-size: 0.875rem; transition: all 0.2s; }
+    .btn { padding: 8px 16px; }
+    .btn-primary { background: #6366f1; color: white; }
+    .btn-primary:hover { background: #4f46e5; }
+    .btn-secondary { background: #1f2937; color: #e5e7eb; border: 1px solid #374151; }
+    .btn-secondary:hover { background: #374151; }
+    .btn-sm { padding: 6px 12px; font-size: 0.75rem; }
+    
+    /* Scrollable chat */
+    .chat-box { height: 460px; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; background: #0b0f19; border-radius: 8px; }
+    .msg-bubble { padding: 8px 14px; border-radius: 16px; max-width: 80%; font-size: 0.875rem; }
+    .msg-me { align-self: flex-end; background: #6366f1; color: white; border-bottom-right-radius: 2px; }
+    .msg-other { align-self: flex-start; background: #1f2937; color: #f3f4f6; border-bottom-left-radius: 2px; }
+    
+    /* Progress bar */
+    .progress-track { width: 100%; height: 10px; background: #1f2937; border-radius: 9999px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, #6366f1, #22c55e); transition: width 0.4s; }
+    
+    /* Toast */
+    #toast-root { position: fixed; bottom: 20px; right: 20px; z-index: 100; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+    .toast { padding: 12px 18px; border-radius: 8px; font-size: 0.875rem; background: #111827; border: 1px solid #6366f1; color: white; box-shadow: 0 10px 25px rgba(0,0,0,0.5); pointer-events: auto; }
+    .toast-err { border-color: #ef4444; background: #450a0a; }
   </style>
 </head>
-<body class="min-h-screen flex flex-col antialiased">
-  <!-- NAVBAR -->
-  <nav class="sticky top-0 z-50 glass border-b border-gray-800/80 px-4 sm:px-8 py-3">
-    <div class="max-w-7xl mx-auto flex items-center justify-between">
-      <div class="flex items-center gap-6">
-        <a href="#explore" onclick="navigate('explore')" class="flex items-center gap-2 cursor-pointer">
-          <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/30">P</div>
-          <span class="text-xl font-bold tracking-tight gradient-text">Pronnect</span>
-        </a>
-        <div class="hidden sm:flex items-center gap-1">
-          <button onclick="navigate('explore')" id="nav-explore" class="px-3 py-1.5 rounded-lg text-sm text-gray-300 hover:text-white hover:bg-gray-800 transition-all font-medium">Explore</button>
-          <button onclick="navigate('global-chat')" id="nav-global" class="px-3 py-1.5 rounded-lg text-sm text-gray-300 hover:text-white hover:bg-gray-800 transition-all font-medium">Global Chat</button>
-          <button onclick="navigate('new-project')" id="nav-new" class="px-3 py-1.5 rounded-lg text-sm text-gray-300 hover:text-white hover:bg-gray-800 transition-all font-medium">+ New Project</button>
+<body>
+  <!-- NAV -->
+  <nav>
+    <div class="nav-inner">
+      <div style="display:flex; align-items:center; gap:20px;">
+        <div onclick="navigate('explore')" style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+          <div style="width:32px; height:32px; border-radius:8px; background:#6366f1; display:flex; align-items:center; justify-content:center; font-weight:bold; color:white;">P</div>
+          <span class="gradient-text" style="font-size:1.25rem;">Pronnect</span>
+        </div>
+        <div class="nav-links">
+          <button class="btn btn-secondary" onclick="navigate('explore')">Explore</button>
+          <button class="btn btn-secondary" onclick="navigate('global-chat')">Global Chat</button>
+          <button class="btn btn-secondary" onclick="navigate('new-project')">+ New Project</button>
         </div>
       </div>
-      <div id="nav-auth" class="flex items-center gap-3"></div>
+      <div id="nav-auth" style="display:flex; align-items:center; gap:12px;"></div>
     </div>
   </nav>
 
-  <!-- MAIN CONTAINER -->
-  <main class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-8 py-8" id="app-root"></main>
-
-  <!-- TOAST CONTAINER -->
-  <div id="toast-root" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+  <!-- CONTENT -->
+  <div class="container" id="app-root"></div>
+  <div id="toast-root"></div>
 
   <script>
-    // --- STATE MANAGEMENT ---
     let currentUser = null;
     let currentView = 'explore';
     let activeProjectId = null;
@@ -788,17 +828,15 @@ function getAppHTML() {
     let projectsCache = [];
     let domainTags = ["AI/ML", "Web Dev", "Mobile", "Embedded Systems", "Robotics", "IoT", "Cybersecurity", "Data Science", "Research"];
 
-    // Toast utility
     function showToast(msg, isError = false) {
       const root = document.getElementById('toast-root');
       const toast = document.createElement('div');
-      toast.className = 'glass-card px-4 py-3 text-sm text-gray-100 shadow-xl border ' + (isError ? 'border-red-500/50 bg-red-950/80' : 'border-indigo-500/50 bg-gray-900/90') + ' pointer-events-auto transition-all transform duration-300';
+      toast.className = 'toast ' + (isError ? 'toast-err' : '');
       toast.innerHTML = (isError ? '⚠️ ' : '✅ ') + msg;
       root.appendChild(toast);
       setTimeout(() => { toast.remove(); }, 3500);
     }
 
-    // Initialize App
     async function init() {
       setupRealtimeSSE();
       await checkAuth();
@@ -809,7 +847,7 @@ function getAppHTML() {
       const evtSource = new EventSource('/api/events');
       evtSource.onmessage = (e) => {
         try {
-          const { type, payload } = JSON.parse(e.data);
+          const { type } = JSON.parse(e.data);
           if (type === 'GLOBAL_MESSAGE' && currentView === 'global-chat') loadGlobalChat();
           if (type === 'PROJECT_MESSAGE' && currentView === 'project' && activeProjectTab === 'chat') loadProjectChat(activeProjectId);
           if (type === 'TASK_CREATED' || type === 'TASK_UPDATED') {
@@ -842,16 +880,16 @@ function getAppHTML() {
       const container = document.getElementById('nav-auth');
       if (currentUser) {
         container.innerHTML = \`
-          <button onclick="navigate('profile', '\${currentUser.id}')" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors text-sm">
-            <div class="w-6 h-6 rounded-full bg-indigo-600 text-white font-bold flex items-center justify-center text-xs">\${currentUser.name.slice(0, 1).toUpperCase()}</div>
-            <span class="font-medium text-gray-200">\${currentUser.name}</span>
+          <button onclick="navigate('profile', '\${currentUser.id}')" class="btn btn-secondary" style="display:flex; align-items:center; gap:6px;">
+            <div style="width:20px; height:20px; border-radius:50%; background:#6366f1; color:white; font-size:10px; display:flex; align-items:center; justify-content:center; font-weight:bold;">\${currentUser.name.slice(0, 1).toUpperCase()}</div>
+            <span>\${escapeHtml(currentUser.name)}</span>
           </button>
-          <button onclick="logout()" class="text-xs text-gray-400 hover:text-red-400 transition-colors">Sign Out</button>
+          <button onclick="logout()" class="btn btn-secondary btn-sm" style="color:#ef4444;">Sign Out</button>
         \`;
       } else {
         container.innerHTML = \`
-          <button onclick="navigate('login')" class="text-sm text-gray-300 hover:text-white px-3 py-1.5">Sign In</button>
-          <button onclick="navigate('register')" class="text-sm bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-1.5 rounded-lg font-medium shadow-md shadow-indigo-600/30">Get Started</button>
+          <button onclick="navigate('login')" class="btn btn-secondary">Sign In</button>
+          <button onclick="navigate('register')" class="btn btn-primary">Get Started</button>
         \`;
       }
     }
@@ -864,10 +902,8 @@ function getAppHTML() {
       navigate('explore');
     }
 
-    // Router
     function navigate(view, param = null) {
       currentView = view;
-      const root = document.getElementById('app-root');
       if (view === 'explore') renderExploreView();
       else if (view === 'login') renderLoginView();
       else if (view === 'register') renderRegisterView();
@@ -875,38 +911,33 @@ function getAppHTML() {
       else if (view === 'project') renderProjectView(param);
       else if (view === 'global-chat') renderGlobalChatView();
       else if (view === 'profile') renderProfileView(param || (currentUser ? currentUser.id : null));
-      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // --- 1. EXPLORE VIEW ---
+    // --- EXPLORE ---
     async function renderExploreView() {
       const root = document.getElementById('app-root');
       root.innerHTML = \`
-        <div class="space-y-6">
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div style="display:flex; flex-direction:column; gap:20px;">
+          <div class="flex justify-between items-center">
             <div>
-              <h1 class="text-3xl font-extrabold tracking-tight">Explore Projects</h1>
-              <p class="text-gray-400 text-sm mt-1">Discover teams, open collaboration projects, and hackathon groups</p>
+              <h1 style="font-size:1.75rem; font-weight:bold;">Explore Projects</h1>
+              <p class="text-muted text-sm">Find teammates and open collaboration projects</p>
             </div>
-            <button onclick="navigate('new-project')" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium shadow-lg shadow-indigo-600/30 self-start sm:self-auto">+ Create Project</button>
+            <button onclick="navigate('new-project')" class="btn btn-primary">+ Create Project</button>
           </div>
 
-          <!-- Filters -->
-          <div class="glass-card p-4 space-y-3">
-            <div class="flex flex-col sm:flex-row gap-3">
-              <input id="search-input" oninput="debounceSearch()" placeholder="Search projects by name or description..." class="flex-1 px-3.5 py-2 bg-gray-900 border border-gray-700 rounded-lg text-sm text-gray-100 focus:outline-none focus:border-indigo-500" />
-              <input id="school-input" oninput="debounceSearch()" placeholder="Filter by school / college..." class="sm:w-64 px-3.5 py-2 bg-gray-900 border border-gray-700 rounded-lg text-sm text-gray-100 focus:outline-none focus:border-indigo-500" />
+          <div class="glass-card" style="display:flex; flex-direction:column; gap:12px;">
+            <div style="display:flex; gap:12px; flex-wrap:wrap;">
+              <input id="search-input" oninput="debounceSearch()" placeholder="Search projects..." style="flex:1; min-width:200px;" />
+              <input id="school-input" oninput="debounceSearch()" placeholder="Filter by school/institution..." style="flex:1; min-width:200px;" />
             </div>
-            <div class="flex flex-wrap gap-1.5 pt-1" id="tag-filters">
-              <button onclick="selectTag('')" id="tag-btn-all" class="px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-600 text-white">All Tags</button>
-              \${domainTags.map(t => \`<button onclick="selectTag('\${t}')" id="tag-btn-\${t.replace(/[^a-zA-Z]/g, '')}" class="px-2.5 py-1 rounded-full text-xs font-medium bg-gray-800 text-gray-400 hover:bg-gray-700 border border-gray-700">\${t}</button>\`).join('')}
+            <div style="display:flex; gap:6px; flex-wrap:wrap;" id="tag-filters">
+              <button onclick="selectTag('')" id="tag-btn-all" class="badge badge-indigo" style="cursor:pointer; padding:6px 12px;">All Tags</button>
+              \${domainTags.map(t => \`<button onclick="selectTag('\${t}')" id="tag-btn-\${t.replace(/[^a-zA-Z]/g, '')}" class="badge" style="cursor:pointer; padding:6px 12px;">\${t}</button>\`).join('')}
             </div>
           </div>
 
-          <!-- Project Cards Grid -->
-          <div id="projects-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            <div class="text-gray-500 text-sm col-span-full text-center py-12">Loading projects...</div>
-          </div>
+          <div id="projects-grid" class="grid grid-3">Loading projects...</div>
         </div>
       \`;
       loadProjects();
@@ -914,7 +945,6 @@ function getAppHTML() {
 
     let activeTag = '';
     let searchDebounceTimer = null;
-
     function debounceSearch() {
       clearTimeout(searchDebounceTimer);
       searchDebounceTimer = setTimeout(loadProjects, 300);
@@ -922,11 +952,9 @@ function getAppHTML() {
 
     function selectTag(tag) {
       activeTag = tag;
-      document.querySelectorAll('#tag-filters button').forEach(b => {
-        b.className = 'px-2.5 py-1 rounded-full text-xs font-medium bg-gray-800 text-gray-400 hover:bg-gray-700 border border-gray-700';
-      });
-      const selected = tag ? document.getElementById('tag-btn-' + tag.replace(/[^a-zA-Z]/g, '')) : document.getElementById('tag-btn-all');
-      if (selected) selected.className = 'px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-600 text-white';
+      document.querySelectorAll('#tag-filters button').forEach(b => { b.className = 'badge'; });
+      const sel = tag ? document.getElementById('tag-btn-' + tag.replace(/[^a-zA-Z]/g, '')) : document.getElementById('tag-btn-all');
+      if (sel) sel.className = 'badge badge-indigo';
       loadProjects();
     }
 
@@ -945,87 +973,80 @@ function getAppHTML() {
       if (!grid) return;
 
       if (projectsCache.length === 0) {
-        grid.innerHTML = '<div class="col-span-full text-center py-16 text-gray-500">No projects found. Try a different search or tag!</div>';
+        grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; color:#6b7280;">No projects found.</div>';
         return;
       }
 
       grid.innerHTML = projectsCache.map(p => \`
-        <div class="glass-card p-5 flex flex-col justify-between hover:border-indigo-500/40 transition-all group">
+        <div class="glass-card flex flex-col justify-between" style="cursor:pointer;" onclick="navigate('project', '\${p.id}')">
           <div>
-            <div class="flex items-start justify-between gap-2 mb-2">
-              <h3 onclick="navigate('project', '\${p.id}')" class="font-semibold text-lg text-gray-100 group-hover:text-indigo-300 cursor-pointer line-clamp-1">\${escapeHtml(p.name)}</h3>
-              <span class="text-xs px-2 py-0.5 rounded bg-gray-800 border border-gray-700 text-gray-400 shrink-0">\${p._count.members} member\${p._count.members !== 1 ? 's' : ''}</span>
+            <div class="flex justify-between items-center" style="margin-bottom:8px;">
+              <h3 style="font-size:1.1rem; font-weight:600; color:#f3f4f6;">\${escapeHtml(p.name)}</h3>
+              <span class="badge">\${p._count.members} member\${p._count.members !== 1 ? 's' : ''}</span>
             </div>
-            <p class="text-sm text-gray-400 line-clamp-2 mb-4">\${escapeHtml(p.description)}</p>
-            <div class="flex flex-wrap gap-1.5 mb-4">
-              \${p.tags.map(t => \`<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-indigo-950/80 border border-indigo-500/30 text-indigo-300">\${t}</span>\`).join('')}
+            <p class="text-muted text-sm" style="margin-bottom:12px;">\${escapeHtml(p.description)}</p>
+            <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:16px;">
+              \${p.tags.map(t => \`<span class="badge badge-indigo">\${t}</span>\`).join('')}
             </div>
           </div>
-          <div class="flex items-center justify-between pt-3 border-t border-gray-800/80">
-            <div class="flex items-center gap-2">
-              <div class="w-6 h-6 rounded-full bg-indigo-700 text-white font-bold flex items-center justify-center text-[10px]">\${p.leader ? p.leader.name.slice(0, 1).toUpperCase() : '?'}</div>
-              <div>
-                <div class="text-xs font-medium text-gray-300">\${p.leader ? escapeHtml(p.leader.name) : 'Anonymous'}</div>
-                \${p.leader && p.leader.school ? \`<div class="text-[10px] text-gray-500">\${escapeHtml(p.leader.school)}</div>\` : ''}
-              </div>
+          <div class="flex justify-between items-center" style="padding-top:10px; border-top:1px solid #1f2937;">
+            <div style="font-size:0.75rem; color:#9ca3af;">
+              <div>Led by <strong>\${p.leader ? escapeHtml(p.leader.name) : 'Anonymous'}</strong></div>
+              \${p.leader && p.leader.school ? \`<div>🎓 \${escapeHtml(p.leader.school)}</div>\` : ''}
             </div>
-            <button onclick="navigate('project', '\${p.id}')" class="text-xs font-medium text-indigo-400 hover:text-indigo-300">View &rarr;</button>
+            <button class="btn btn-secondary btn-sm">View &rarr;</button>
           </div>
         </div>
       \`).join('');
     }
 
-    // --- 2. PROJECT DETAIL & WORKSPACE ---
+    // --- PROJECT WORKSPACE ---
     async function renderProjectView(projectId) {
       activeProjectId = projectId;
       const root = document.getElementById('app-root');
-      root.innerHTML = '<div class="text-center py-20 text-gray-500">Loading project workspace...</div>';
+      root.innerHTML = '<div style="text-align:center; padding:60px; color:#9ca3af;">Loading workspace...</div>';
 
       const res = await fetch('/api/projects/' + projectId);
       if (!res.ok) {
-        root.innerHTML = '<div class="text-center py-20 text-red-400">Project not found or private.</div>';
+        root.innerHTML = '<div style="text-align:center; padding:60px; color:#ef4444;">Project not found.</div>';
         return;
       }
       const { project, isMember, isLeader } = await res.json();
 
       root.innerHTML = \`
-        <div class="space-y-6">
-          <!-- Project Header -->
-          <div class="glass-card p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div style="display:flex; flex-direction:column; gap:20px;">
+          <div class="glass-card flex justify-between items-center" style="flex-wrap:wrap; gap:16px;">
             <div>
-              <div class="flex items-center gap-3">
-                <h1 class="text-2xl font-bold text-gray-100">\${escapeHtml(project.name)}</h1>
-                <span class="text-xs px-2.5 py-0.5 rounded-full font-medium \${project.visibility === 'PUBLIC' ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'}">\${project.visibility}</span>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <h1 style="font-size:1.5rem; font-weight:bold;">\${escapeHtml(project.name)}</h1>
+                <span class="badge \${project.visibility === 'PUBLIC' ? 'badge-green' : 'badge-yellow'}">\${project.visibility}</span>
               </div>
-              <p class="text-sm text-gray-400 mt-2 max-w-2xl">\${escapeHtml(project.description)}</p>
-              <div class="flex flex-wrap gap-2 mt-3">
-                \${project.tags.map(t => \`<span class="px-2.5 py-0.5 rounded-md text-xs font-medium bg-indigo-950/80 border border-indigo-500/30 text-indigo-300">\${t}</span>\`).join('')}
+              <p class="text-muted text-sm" style="margin-top:6px;">\${escapeHtml(project.description)}</p>
+              <div style="display:flex; gap:6px; margin-top:10px;">
+                \${project.tags.map(t => \`<span class="badge badge-indigo">\${t}</span>\`).join('')}
               </div>
             </div>
-            <div class="flex items-center gap-3 self-start md:self-auto" id="project-action-btn">
-              \${!isMember && currentUser ? \`<button onclick="requestToJoin('\${project.id}')" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium shadow-md shadow-indigo-600/30">Request to Join</button>\` : ''}
-              \${!currentUser ? \`<button onclick="navigate('login')" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg text-sm border border-gray-700">Sign in to Join</button>\` : ''}
+            <div>
+              \${!isMember && currentUser ? \`<button onclick="requestToJoin('\${project.id}')" class="btn btn-primary">Request to Join</button>\` : ''}
+              \${!currentUser ? \`<button onclick="navigate('login')" class="btn btn-secondary">Sign in to Join</button>\` : ''}
             </div>
           </div>
 
           \${!isMember ? \`
-            <div class="glass-card p-12 text-center text-gray-400">
-              <div class="text-3xl mb-2">🔒</div>
-              <h3 class="text-lg font-semibold text-gray-200">Members-Only Workspace</h3>
-              <p class="text-sm text-gray-500 mt-1 max-w-md mx-auto">Join this team to participate in real-time chat, task boards, live polls, and shared media.</p>
+            <div class="glass-card" style="text-align:center; padding:48px; color:#9ca3af;">
+              <div style="font-size:2rem; margin-bottom:8px;">🔒</div>
+              <h3>Members-Only Project Workspace</h3>
+              <p class="text-muted text-sm" style="margin-top:4px;">Join this project to access team chat, tasks, polls, and media.</p>
             </div>
           \` : \`
-            <!-- Workspace Tabs -->
-            <div class="flex gap-2 border-b border-gray-800 pb-2 overflow-x-auto">
-              <button onclick="switchProjectTab('chat')" id="ptab-chat" class="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white">💬 Team Chat</button>
-              <button onclick="switchProjectTab('tasks')" id="ptab-tasks" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-800">📋 Tasks</button>
-              <button onclick="switchProjectTab('polls')" id="ptab-polls" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-800">📊 Polls</button>
-              <button onclick="switchProjectTab('media')" id="ptab-media" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-800">📁 Media & Links</button>
-              <button onclick="switchProjectTab('progress')" id="ptab-progress" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-800">📈 Progress</button>
-              \${isLeader ? \`<button onclick="switchProjectTab('requests')" id="ptab-requests" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-800">👥 Join Requests</button>\` : ''}
+            <div style="display:flex; gap:8px; border-bottom:1px solid #1f2937; padding-bottom:8px; overflow-x:auto;">
+              <button onclick="switchProjectTab('chat')" id="ptab-chat" class="btn btn-primary btn-sm">💬 Team Chat</button>
+              <button onclick="switchProjectTab('tasks')" id="ptab-tasks" class="btn btn-secondary btn-sm">📋 Tasks</button>
+              <button onclick="switchProjectTab('polls')" id="ptab-polls" class="btn btn-secondary btn-sm">📊 Polls</button>
+              <button onclick="switchProjectTab('media')" id="ptab-media" class="btn btn-secondary btn-sm">📁 Media & Links</button>
+              <button onclick="switchProjectTab('progress')" id="ptab-progress" class="btn btn-secondary btn-sm">📈 Progress</button>
+              \${isLeader ? \`<button onclick="switchProjectTab('requests')" id="ptab-requests" class="btn btn-secondary btn-sm">👥 Join Requests</button>\` : ''}
             </div>
-
-            <!-- Tab Content Container -->
             <div id="project-tab-content"></div>
           \`}
         </div>
@@ -1038,24 +1059,22 @@ function getAppHTML() {
       const res = await fetch('/api/projects/' + projId + '/join-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: "Hi, I'd love to collaborate on this project!" })
+        body: JSON.stringify({ message: "Requesting to join!" })
       });
-      const data = await res.json();
       if (res.ok) {
-        showToast("Join request sent to project leader!");
-        document.getElementById('project-action-btn').innerHTML = '<span class="text-xs text-green-400 font-medium px-3 py-1.5 bg-green-500/10 border border-green-500/30 rounded-lg">Requested ✓</span>';
+        showToast("Join request sent!");
+        renderProjectView(projId);
       } else {
-        showToast(data.error || "Failed to send request", true);
+        const d = await res.json();
+        showToast(d.error || "Failed", true);
       }
     }
 
     function switchProjectTab(tab) {
       activeProjectTab = tab;
-      document.querySelectorAll('[id^="ptab-"]').forEach(b => {
-        b.className = 'px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-800';
-      });
-      const activeBtn = document.getElementById('ptab-' + tab);
-      if (activeBtn) activeBtn.className = 'px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white';
+      document.querySelectorAll('[id^="ptab-"]').forEach(b => { b.className = 'btn btn-secondary btn-sm'; });
+      const active = document.getElementById('ptab-' + tab);
+      if (active) active.className = 'btn btn-primary btn-sm';
 
       if (tab === 'chat') loadProjectChat(activeProjectId);
       else if (tab === 'tasks') loadProjectTasks(activeProjectId);
@@ -1065,15 +1084,14 @@ function getAppHTML() {
       else if (tab === 'requests') loadProjectRequests(activeProjectId);
     }
 
-    // --- TAB: TEAM CHAT ---
     async function loadProjectChat(projId) {
       const container = document.getElementById('project-tab-content');
       container.innerHTML = \`
-        <div class="glass-card flex flex-col h-[520px]">
-          <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-3">Loading messages...</div>
-          <form onsubmit="sendProjectMessage(event, '\${projId}')" class="p-3 border-t border-gray-800 flex gap-2">
-            <input id="proj-msg-input" placeholder="Type a message to the team..." class="flex-1 px-3.5 py-2 bg-gray-900 border border-gray-700 rounded-lg text-sm text-gray-100 focus:outline-none focus:border-indigo-500" />
-            <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium">Send</button>
+        <div class="glass-card" style="display:flex; flex-direction:column; gap:12px;">
+          <div id="chat-messages" class="chat-box">Loading chat...</div>
+          <form onsubmit="sendProjectMessage(event, '\${projId}')" style="display:flex; gap:8px;">
+            <input id="proj-msg-input" placeholder="Type a message to the team..." style="flex:1;" />
+            <button type="submit" class="btn btn-primary">Send</button>
           </form>
         </div>
       \`;
@@ -1086,17 +1104,15 @@ function getAppHTML() {
       const box = document.getElementById(elementId);
       if (!box) return;
       if (msgs.length === 0) {
-        box.innerHTML = '<div class="text-center text-gray-500 text-sm py-12">No messages yet. Say hello! 👋</div>';
+        box.innerHTML = '<div style="text-align:center; color:#6b7280; margin:auto;">No messages yet. Say hello! 👋</div>';
         return;
       }
       box.innerHTML = msgs.map(m => {
         const isMe = currentUser && m.senderId === currentUser.id;
         return \`
-          <div class="flex flex-col \${isMe ? 'items-end' : 'items-start'}">
-            <div class="text-[10px] text-gray-500 mb-0.5 px-1">\${escapeHtml(m.sender.name)}</div>
-            <div class="px-3.5 py-2 rounded-2xl text-sm max-w-[80%] \${isMe ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-gray-800 text-gray-200 rounded-bl-none'}">
-              \${escapeHtml(m.content)}
-            </div>
+          <div style="display:flex; flex-direction:column; align-items:\${isMe ? 'flex-end' : 'flex-start'};">
+            <div class="text-muted text-xs" style="margin-bottom:2px;">\${escapeHtml(m.sender.name)}</div>
+            <div class="msg-bubble \${isMe ? 'msg-me' : 'msg-other'}">\${escapeHtml(m.content)}</div>
           </div>
         \`;
       }).join('');
@@ -1117,49 +1133,48 @@ function getAppHTML() {
       loadProjectChat(projId);
     }
 
-    // --- TAB: KANBAN TASKS ---
+    // --- TASKS ---
     async function loadProjectTasks(projId) {
       const container = document.getElementById('project-tab-content');
       container.innerHTML = \`
-        <div class="space-y-4">
+        <div style="display:flex; flex-direction:column; gap:16px;">
           <div class="flex justify-between items-center">
-            <h3 class="font-semibold text-gray-200 text-base">Project Tasks</h3>
-            <button onclick="showCreateTaskModal('\${projId}')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium">+ Add Task</button>
+            <h3 style="font-weight:600;">Project Tasks</h3>
+            <button onclick="showCreateTaskModal('\${projId}')" class="btn btn-primary btn-sm">+ Add Task</button>
           </div>
-          <div id="tasks-board" class="grid grid-cols-1 md:grid-cols-3 gap-4">Loading tasks...</div>
+          <div id="tasks-board" class="grid grid-kanban">Loading tasks...</div>
         </div>
       \`;
       const res = await fetch('/api/projects/' + projId + '/tasks');
-      const data = await res.json();
-      const tasks = data.tasks || [];
+      const { tasks = [] } = await res.json();
 
       const todo = tasks.filter(t => t.status === 'TODO');
       const inProgress = tasks.filter(t => t.status === 'IN_PROGRESS');
       const done = tasks.filter(t => t.status === 'DONE');
 
       document.getElementById('tasks-board').innerHTML = \`
-        \${renderTaskColumn('To Do', todo, 'TODO', projId)}
-        \${renderTaskColumn('In Progress', inProgress, 'IN_PROGRESS', projId)}
-        \${renderTaskColumn('Done', done, 'DONE', projId)}
+        \${renderTaskCol('To Do', todo, 'TODO', projId)}
+        \${renderTaskCol('In Progress', inProgress, 'IN_PROGRESS', projId)}
+        \${renderTaskCol('Done', done, 'DONE', projId)}
       \`;
     }
 
-    function renderTaskColumn(title, list, status, projId) {
+    function renderTaskCol(title, list, status, projId) {
       return \`
-        <div class="glass-card p-4 space-y-3">
-          <div class="flex items-center justify-between text-xs font-bold text-gray-400 uppercase tracking-wider">
+        <div class="glass-card" style="display:flex; flex-direction:column; gap:10px;">
+          <div class="flex justify-between items-center text-xs" style="font-weight:bold; color:#9ca3af; text-transform:uppercase;">
             <span>\${title}</span>
-            <span class="px-2 py-0.5 bg-gray-800 rounded">\${list.length}</span>
+            <span class="badge">\${list.length}</span>
           </div>
-          <div class="space-y-2">
-            \${list.length === 0 ? '<div class="text-xs text-gray-600 py-3 text-center">No tasks</div>' : ''}
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            \${list.length === 0 ? '<div class="text-muted text-xs" style="text-align:center; padding:12px;">No tasks</div>' : ''}
             \${list.map(t => \`
-              <div class="p-3 bg-gray-900 border border-gray-800 rounded-lg space-y-2">
-                <div class="text-sm font-medium text-gray-200">\${escapeHtml(t.title)}</div>
-                \${t.description ? \`<div class="text-xs text-gray-400 line-clamp-2">\${escapeHtml(t.description)}</div>\` : ''}
-                <div class="flex items-center justify-between pt-1 text-[11px] text-gray-500">
-                  <span>\${t.assignee ? '👤 ' + escapeHtml(t.assignee.name) : 'Unassigned'}</span>
-                  <select onchange="updateTaskStatus('\${projId}', '\${t.id}', this.value)" class="bg-gray-800 border border-gray-700 rounded px-1.5 py-0.5 text-[10px] text-gray-300">
+              <div style="background:#111827; border:1px solid #1f2937; border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:6px;">
+                <div style="font-size:0.875rem; font-weight:500;">\${escapeHtml(t.title)}</div>
+                \${t.description ? \`<div class="text-muted text-xs">\${escapeHtml(t.description)}</div>\` : ''}
+                <div class="flex justify-between items-center text-xs" style="margin-top:4px;">
+                  <span class="text-muted">\${t.assignee ? '👤 ' + escapeHtml(t.assignee.name) : 'Unassigned'}</span>
+                  <select onchange="updateTaskStatus('\${projId}', '\${t.id}', this.value)" style="width:auto; padding:2px 6px; font-size:10px;">
                     <option value="TODO" \${t.status === 'TODO' ? 'selected' : ''}>To Do</option>
                     <option value="IN_PROGRESS" \${t.status === 'IN_PROGRESS' ? 'selected' : ''}>In Progress</option>
                     <option value="DONE" \${t.status === 'DONE' ? 'selected' : ''}>Done</option>
@@ -1192,44 +1207,41 @@ function getAppHTML() {
       }).then(() => loadProjectTasks(projId));
     }
 
-    // --- TAB: POLLS ---
+    // --- POLLS ---
     async function loadProjectPolls(projId) {
       const container = document.getElementById('project-tab-content');
       container.innerHTML = \`
-        <div class="space-y-4">
+        <div style="display:flex; flex-direction:column; gap:16px;">
           <div class="flex justify-between items-center">
-            <h3 class="font-semibold text-gray-200 text-base">Team Polls</h3>
-            <button onclick="showCreatePollModal('\${projId}')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium">+ Create Poll</button>
+            <h3 style="font-weight:600;">Team Polls</h3>
+            <button onclick="showCreatePollModal('\${projId}')" class="btn btn-primary btn-sm">+ Create Poll</button>
           </div>
-          <div id="polls-list" class="space-y-4">Loading polls...</div>
+          <div id="polls-list" style="display:flex; flex-direction:column; gap:12px;">Loading polls...</div>
         </div>
       \`;
       const res = await fetch('/api/projects/' + projId + '/polls');
-      const data = await res.json();
-      const polls = data.polls || [];
+      const { polls = [] } = await res.json();
       const box = document.getElementById('polls-list');
       if (polls.length === 0) {
-        box.innerHTML = '<div class="glass-card p-8 text-center text-gray-500 text-sm">No polls created yet.</div>';
+        box.innerHTML = '<div class="glass-card" style="text-align:center; padding:30px; color:#6b7280;">No polls created yet.</div>';
         return;
       }
       box.innerHTML = polls.map(p => {
         const totalVotes = p.voteCounts.reduce((a, b) => a + b, 0);
         return \`
-          <div class="glass-card p-5 space-y-3">
-            <div class="font-medium text-gray-100 text-base">\${escapeHtml(p.question)}</div>
-            <div class="text-xs text-gray-500">Created by \${p.createdBy ? escapeHtml(p.createdBy.name) : 'Leader'} &middot; \${p.totalVoters} voter\${p.totalVoters !== 1 ? 's' : ''}</div>
-            <div class="space-y-2 pt-1">
+          <div class="glass-card" style="display:flex; flex-direction:column; gap:12px;">
+            <div style="font-size:1rem; font-weight:600;">\${escapeHtml(p.question)}</div>
+            <div class="text-muted text-xs">\${p.totalVoters} voter\${p.totalVoters !== 1 ? 's' : ''}</div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
               \${p.options.map((opt, idx) => {
                 const count = p.voteCounts[idx] || 0;
                 const pct = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
                 const hasVoted = p.userVote.includes(idx);
                 return \`
-                  <button onclick="votePoll('\${projId}', '\${p.id}', \${idx})" class="w-full text-left p-3 rounded-lg border \${hasVoted ? 'border-indigo-500 bg-indigo-500/10' : 'border-gray-700 bg-gray-900/80 hover:border-gray-600'} transition-all relative overflow-hidden">
-                    <div class="absolute inset-0 bg-indigo-600/20" style="width: \${pct}%;"></div>
-                    <div class="relative flex justify-between items-center text-sm font-medium text-gray-200">
-                      <span>\${escapeHtml(opt)} \${hasVoted ? '✓' : ''}</span>
-                      <span class="text-xs text-gray-400">\${count} vote\${count !== 1 ? 's' : ''} (\${pct}%)</span>
-                    </div>
+                  <button onclick="votePoll('\${projId}', '\${p.id}', \${idx})" class="btn btn-secondary flex justify-between items-center" style="text-align:left; padding:10px 14px; position:relative; overflow:hidden;">
+                    <div style="position:absolute; top:0; left:0; bottom:0; width:\${pct}%; background:rgba(99, 102, 241, 0.2);"></div>
+                    <span style="position:relative; z-index:2;">\${escapeHtml(opt)} \${hasVoted ? '✓' : ''}</span>
+                    <span class="text-muted text-xs" style="position:relative; z-index:2;">\${count} votes (\${pct}%)</span>
                   </button>
                 \`;
               }).join('')}
@@ -1261,33 +1273,31 @@ function getAppHTML() {
       }).then(() => loadProjectPolls(projId));
     }
 
-    // --- TAB: MEDIA & LINKS ---
+    // --- MEDIA ---
     async function loadProjectMedia(projId) {
       const container = document.getElementById('project-tab-content');
       container.innerHTML = \`
-        <div class="space-y-4">
+        <div style="display:flex; flex-direction:column; gap:16px;">
           <div class="flex justify-between items-center">
-            <h3 class="font-semibold text-gray-200 text-base">Media & Project Resources</h3>
-            <button onclick="showAddMediaModal('\${projId}')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium">+ Add Link</button>
+            <h3 style="font-weight:600;">Media & Shared Resources</h3>
+            <button onclick="showAddMediaModal('\${projId}')" class="btn btn-primary btn-sm">+ Add Resource</button>
           </div>
-          <div id="media-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">Loading media...</div>
+          <div id="media-grid" class="grid grid-3">Loading media...</div>
         </div>
       \`;
       const res = await fetch('/api/projects/' + projId + '/media');
-      const data = await res.json();
-      const items = data.items || [];
+      const { items = [] } = await res.json();
       const grid = document.getElementById('media-grid');
       if (items.length === 0) {
-        grid.innerHTML = '<div class="col-span-full glass-card p-8 text-center text-gray-500 text-sm">No resources shared yet.</div>';
+        grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:30px; color:#6b7280;">No resources shared yet.</div>';
         return;
       }
       grid.innerHTML = items.map(m => \`
-        <a href="\${escapeHtml(m.url)}" target="_blank" class="glass-card p-4 flex items-start gap-3 hover:border-indigo-500/40 transition-all group">
-          <div class="w-8 h-8 rounded bg-indigo-600/20 text-indigo-400 flex items-center justify-center font-bold text-sm shrink-0">🔗</div>
-          <div class="min-w-0 flex-1">
-            <div class="text-sm font-medium text-gray-200 group-hover:text-indigo-300 truncate">\${escapeHtml(m.name)}</div>
-            <div class="text-xs text-gray-500 truncate">\${escapeHtml(m.url)}</div>
-            <div class="text-[10px] text-gray-600 mt-1">Shared by \${m.uploader ? escapeHtml(m.uploader.name) : 'User'}</div>
+        <a href="\${escapeHtml(m.url)}" target="_blank" class="glass-card" style="text-decoration:none; color:inherit; display:flex; gap:12px; align-items:flex-start;">
+          <div style="font-size:1.5rem;">🔗</div>
+          <div style="overflow:hidden;">
+            <div style="font-weight:500; font-size:0.875rem; color:#f3f4f6;">\${escapeHtml(m.name)}</div>
+            <div class="text-muted text-xs" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">\${escapeHtml(m.url)}</div>
           </div>
         </a>
       \`).join('');
@@ -1304,7 +1314,7 @@ function getAppHTML() {
       }).then(() => loadProjectMedia(projId));
     }
 
-    // --- TAB: PROGRESS (CHARTS & STATS) ---
+    // --- PROGRESS ---
     async function loadProjectProgress(projId) {
       const container = document.getElementById('project-tab-content');
       const res = await fetch('/api/projects/' + projId + '/tasks');
@@ -1317,64 +1327,54 @@ function getAppHTML() {
       const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
       container.innerHTML = \`
-        <div class="space-y-6">
-          <div class="glass-card p-6 space-y-4">
-            <h3 class="font-semibold text-gray-200 text-lg">Milestone & Task Completion</h3>
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div class="bg-gray-900 p-4 rounded-xl border border-gray-800 text-center">
-                <div class="text-2xl font-bold text-gray-100">\${total}</div>
-                <div class="text-xs text-gray-500">Total Tasks</div>
-              </div>
-              <div class="bg-gray-900 p-4 rounded-xl border border-gray-800 text-center">
-                <div class="text-2xl font-bold text-yellow-400">\${inProgress}</div>
-                <div class="text-xs text-gray-500">In Progress</div>
-              </div>
-              <div class="bg-gray-900 p-4 rounded-xl border border-gray-800 text-center">
-                <div class="text-2xl font-bold text-green-400">\${done}</div>
-                <div class="text-xs text-gray-500">Completed</div>
-              </div>
-              <div class="bg-gray-900 p-4 rounded-xl border border-gray-800 text-center">
-                <div class="text-2xl font-bold text-indigo-400">\${pct}%</div>
-                <div class="text-xs text-gray-500">Overall Progress</div>
-              </div>
+        <div class="glass-card" style="display:flex; flex-direction:column; gap:20px;">
+          <h3 style="font-weight:600;">Milestone & Progress Overview</h3>
+          <div class="grid grid-3">
+            <div class="glass-card" style="text-align:center; background:#111827;">
+              <div style="font-size:1.75rem; font-weight:bold;">\${total}</div>
+              <div class="text-muted text-xs">Total Tasks</div>
             </div>
-
-            <!-- Visual Progress Bar -->
-            <div class="space-y-2 pt-2">
-              <div class="flex justify-between text-xs text-gray-400 font-medium">
-                <span>Progress: \${done} of \${total} tasks done</span>
-                <span>\${pct}%</span>
-              </div>
-              <div class="w-full h-3 bg-gray-800 rounded-full overflow-hidden">
-                <div class="h-full bg-gradient-to-r from-indigo-500 to-green-500 rounded-full transition-all duration-700" style="width: \${pct}%;"></div>
-              </div>
+            <div class="glass-card" style="text-align:center; background:#111827;">
+              <div style="font-size:1.75rem; font-weight:bold; color:#eab308;">\${inProgress}</div>
+              <div class="text-muted text-xs">In Progress</div>
+            </div>
+            <div class="glass-card" style="text-align:center; background:#111827;">
+              <div style="font-size:1.75rem; font-weight:bold; color:#22c55e;">\${done}</div>
+              <div class="text-muted text-xs">Completed</div>
+            </div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <div class="flex justify-between text-xs" style="font-weight:500;">
+              <span>Overall Completion</span>
+              <span>\${pct}%</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill" style="width:\${pct}%;"></div>
             </div>
           </div>
         </div>
       \`;
     }
 
-    // --- TAB: JOIN REQUESTS ---
+    // --- REQUESTS ---
     async function loadProjectRequests(projId) {
       const container = document.getElementById('project-tab-content');
       const res = await fetch('/api/projects/' + projId + '/join-requests');
       const { requests = [] } = await res.json();
-
       container.innerHTML = \`
-        <div class="glass-card p-6 space-y-4">
-          <h3 class="font-semibold text-gray-200 text-base">Pending Join Requests (\${requests.length})</h3>
-          \${requests.length === 0 ? '<div class="text-gray-500 text-sm text-center py-6">No pending join requests</div>' : ''}
-          <div class="space-y-3">
+        <div class="glass-card" style="display:flex; flex-direction:column; gap:16px;">
+          <h3 style="font-weight:600;">Pending Join Requests (\${requests.length})</h3>
+          \${requests.length === 0 ? '<div class="text-muted text-sm" style="text-align:center; padding:20px;">No pending join requests</div>' : ''}
+          <div style="display:flex; flex-direction:column; gap:10px;">
             \${requests.map(r => \`
-              <div class="p-4 bg-gray-900 border border-gray-800 rounded-xl flex items-center justify-between gap-4">
+              <div class="flex justify-between items-center" style="background:#111827; padding:12px 16px; border-radius:8px; border:1px solid #1f2937;">
                 <div>
-                  <div class="font-medium text-gray-200">\${escapeHtml(r.user ? r.user.name : 'Applicant')}</div>
-                  <div class="text-xs text-gray-400">\${escapeHtml(r.user ? r.user.school : '')}</div>
-                  \${r.message ? \`<div class="text-xs text-gray-500 italic mt-1">"\${escapeHtml(r.message)}"</div>\` : ''}
+                  <div style="font-weight:500;">\${escapeHtml(r.user ? r.user.name : 'User')}</div>
+                  <div class="text-muted text-xs">\${escapeHtml(r.user ? r.user.school : '')}</div>
                 </div>
-                <div class="flex gap-2">
-                  <button onclick="handleJoinRequest('\${projId}', '\${r.id}', 'DENIED')" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-red-400 rounded-lg text-xs font-medium">Deny</button>
-                  <button onclick="handleJoinRequest('\${projId}', '\${r.id}', 'APPROVED')" class="px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white rounded-lg text-xs font-medium">Approve</button>
+                <div style="display:flex; gap:8px;">
+                  <button onclick="handleJoinRequest('\${projId}', '\${r.id}', 'DENIED')" class="btn btn-secondary btn-sm" style="color:#ef4444;">Deny</button>
+                  <button onclick="handleJoinRequest('\${projId}', '\${r.id}', 'APPROVED')" class="btn btn-primary btn-sm" style="background:#16a34a;">Approve</button>
                 </div>
               </div>
             \`).join('')}
@@ -1389,64 +1389,56 @@ function getAppHTML() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action })
       });
-      showToast(action === 'APPROVED' ? 'Member approved!' : 'Request denied');
+      showToast(action === 'APPROVED' ? 'Member approved!' : 'Denied');
       loadProjectRequests(projId);
     }
 
-    // --- 3. CREATE PROJECT VIEW ---
+    // --- CREATE PROJECT ---
     function renderNewProjectView() {
-      if (!currentUser) {
-        navigate('login');
-        return;
-      }
+      if (!currentUser) { navigate('login'); return; }
       const root = document.getElementById('app-root');
       root.innerHTML = \`
-        <div class="max-w-2xl mx-auto glass-card p-8 space-y-6">
-          <div>
-            <h1 class="text-2xl font-bold text-gray-100">Create a New Project</h1>
-            <p class="text-gray-400 text-sm mt-1">Launch a project, recruit team members, and encrypt project settings at rest.</p>
-          </div>
-          <form onsubmit="submitNewProject(event)" class="space-y-4">
+        <div class="glass-card" style="max-width:600px; margin:0 auto; display:flex; flex-direction:column; gap:16px;">
+          <h1 style="font-size:1.5rem; font-weight:bold;">Create a New Project</h1>
+          <form onsubmit="submitNewProject(event)" style="display:flex; flex-direction:column; gap:14px;">
             <div>
-              <label class="block text-xs font-medium text-gray-300 mb-1">Project Name</label>
-              <input id="new-proj-name" required placeholder="e.g. Autonomous Drone Swarm" class="w-full px-3.5 py-2.5 bg-gray-900 border border-gray-700 rounded-lg text-sm text-gray-100 focus:outline-none focus:border-indigo-500" />
+              <label class="text-xs" style="margin-bottom:4px; display:block;">Project Name</label>
+              <input id="new-proj-name" required placeholder="e.g. Autonomous Drone Swarm" />
             </div>
             <div>
-              <label class="block text-xs font-medium text-gray-300 mb-1">Description</label>
-              <textarea id="new-proj-desc" required rows="3" placeholder="What are you building and who are you looking to recruit?" class="w-full px-3.5 py-2.5 bg-gray-900 border border-gray-700 rounded-lg text-sm text-gray-100 focus:outline-none focus:border-indigo-500"></textarea>
+              <label class="text-xs" style="margin-bottom:4px; display:block;">Description</label>
+              <textarea id="new-proj-desc" required rows="3" placeholder="What are you building?"></textarea>
             </div>
             <div>
-              <label class="block text-xs font-medium text-gray-300 mb-1">Visibility</label>
-              <select id="new-proj-vis" class="w-full px-3.5 py-2.5 bg-gray-900 border border-gray-700 rounded-lg text-sm text-gray-100 focus:outline-none focus:border-indigo-500">
-                <option value="PUBLIC">Public (Visible in explore feed)</option>
-                <option value="PRIVATE">Private (Invite & direct link only)</option>
+              <label class="text-xs" style="margin-bottom:4px; display:block;">Visibility</label>
+              <select id="new-proj-vis">
+                <option value="PUBLIC">Public (Visible to everyone)</option>
+                <option value="PRIVATE">Private (Direct link only)</option>
               </select>
             </div>
             <div>
-              <label class="block text-xs font-medium text-gray-300 mb-2">Domain Tags (Click to select)</label>
-              <div class="flex flex-wrap gap-2" id="create-tags-container">
-                \${domainTags.map(t => \`
-                  <button type="button" onclick="toggleCreateTag('\${t}', this)" class="px-2.5 py-1 rounded-full text-xs font-medium bg-gray-800 text-gray-400 border border-gray-700">\${t}</button>
-                \`).join('')}
+              <label class="text-xs" style="margin-bottom:4px; display:block;">Tags</label>
+              <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                \${domainTags.map(t => \`<button type="button" onclick="toggleTag('\${t}', this)" class="badge" style="cursor:pointer; padding:6px 10px;">\${t}</button>\`).join('')}
               </div>
             </div>
-            <div class="flex gap-3 pt-4">
-              <button type="button" onclick="navigate('explore')" class="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm font-medium">Cancel</button>
-              <button type="submit" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium shadow-lg shadow-indigo-600/30">Create Project</button>
+            <div style="display:flex; gap:8px; margin-top:8px;">
+              <button type="button" onclick="navigate('explore')" class="btn btn-secondary">Cancel</button>
+              <button type="submit" class="btn btn-primary" style="flex:1;">Create Project</button>
             </div>
           </form>
         </div>
       \`;
     }
 
-    let selectedCreateTags = [];
-    function toggleCreateTag(tag, btn) {
-      if (selectedCreateTags.includes(tag)) {
-        selectedCreateTags = selectedCreateTags.filter(t => t !== tag);
-        btn.className = 'px-2.5 py-1 rounded-full text-xs font-medium bg-gray-800 text-gray-400 border border-gray-700';
+    let selectedTags = [];
+    function toggleTag(t, btn) {
+      if (selectedTags.includes(t)) {
+        selectedTags = selectedTags.filter(x => x !== t);
+        btn.className = 'badge';
       } else {
-        selectedCreateTags.push(tag);
-        btn.className = 'px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-600 text-white border border-indigo-500';
+        selectedTags.push(t);
+        btn.className = 'badge badge-indigo';
       }
     }
 
@@ -1455,41 +1447,38 @@ function getAppHTML() {
       const name = document.getElementById('new-proj-name').value.trim();
       const description = document.getElementById('new-proj-desc').value.trim();
       const visibility = document.getElementById('new-proj-vis').value;
-
       const res = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, description, visibility, tags: selectedCreateTags })
+        body: JSON.stringify({ name, description, visibility, tags: selectedTags })
       });
       const data = await res.json();
       if (res.ok) {
-        showToast('Project created successfully!');
-        selectedCreateTags = [];
+        showToast('Project created!');
+        selectedTags = [];
         navigate('project', data.project.id);
       } else {
-        showToast(data.error || 'Failed to create', true);
+        showToast(data.error || 'Error', true);
       }
     }
 
-    // --- 4. GLOBAL CHAT VIEW ---
+    // --- GLOBAL CHAT ---
     async function renderGlobalChatView() {
       const root = document.getElementById('app-root');
       root.innerHTML = \`
-        <div class="max-w-4xl mx-auto space-y-4">
-          <div class="flex items-center justify-between">
+        <div style="max-w:800px; margin:0 auto; display:flex; flex-direction:column; gap:16px;">
+          <div class="flex justify-between items-center">
             <div>
-              <h1 class="text-2xl font-bold text-gray-100">Global Community Chat</h1>
-              <p class="text-xs text-gray-400">Live platform-wide chat for makers & developers</p>
+              <h1 style="font-size:1.5rem; font-weight:bold;">Global Community Chat</h1>
+              <p class="text-muted text-xs">Live platform-wide chat for makers</p>
             </div>
-            <div class="flex items-center gap-1.5 text-xs text-green-400 bg-green-500/10 border border-green-500/30 px-2.5 py-1 rounded-full">
-              <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Live
-            </div>
+            <span class="badge badge-green">Live SSE</span>
           </div>
-          <div class="glass-card flex flex-col h-[560px]">
-            <div id="global-chat-messages" class="flex-1 overflow-y-auto p-4 space-y-3">Loading global chat...</div>
-            <form onsubmit="sendGlobalMessage(event)" class="p-3 border-t border-gray-800 flex gap-2">
-              <input id="global-msg-input" placeholder="\${currentUser ? 'Share something with the whole community...' : 'Sign in to participate...'}" \${!currentUser ? 'disabled' : ''} class="flex-1 px-3.5 py-2 bg-gray-900 border border-gray-700 rounded-lg text-sm text-gray-100 focus:outline-none focus:border-indigo-500 disabled:opacity-50" />
-              <button type="submit" \${!currentUser ? 'disabled' : ''} class="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium disabled:opacity-50">Send</button>
+          <div class="glass-card" style="display:flex; flex-direction:column; gap:12px;">
+            <div id="global-chat-messages" class="chat-box">Loading chat...</div>
+            <form onsubmit="sendGlobalMessage(event)" style="display:flex; gap:8px;">
+              <input id="global-msg-input" placeholder="\${currentUser ? 'Send a message to the community...' : 'Sign in to participate...'}" \${!currentUser ? 'disabled' : ''} style="flex:1;" />
+              <button type="submit" \${!currentUser ? 'disabled' : ''} class="btn btn-primary">Send</button>
             </form>
           </div>
         </div>
@@ -1518,59 +1507,45 @@ function getAppHTML() {
       loadGlobalChat();
     }
 
-    // --- 5. PROFILE VIEW ---
+    // --- PROFILE ---
     async function renderProfileView(userId) {
       const root = document.getElementById('app-root');
-      root.innerHTML = '<div class="text-center py-20 text-gray-500">Loading profile...</div>';
       const res = await fetch('/api/users/' + userId);
-      if (!res.ok) {
-        root.innerHTML = '<div class="text-center py-20 text-red-400">User not found</div>';
-        return;
-      }
+      if (!res.ok) { root.innerHTML = '<div style="text-align:center; padding:40px;">User not found</div>'; return; }
       const { user } = await res.json();
       const isMe = currentUser && currentUser.id === user.id;
 
       root.innerHTML = \`
-        <div class="max-w-3xl mx-auto space-y-6">
-          <div class="glass-card p-6 space-y-4">
-            <div class="flex items-start justify-between">
-              <div class="flex items-center gap-4">
-                <div class="w-16 h-16 rounded-2xl bg-indigo-600 font-bold text-2xl text-white flex items-center justify-center shadow-lg shadow-indigo-600/30">\${user.name.slice(0, 1).toUpperCase()}</div>
-                <div>
-                  <h1 class="text-2xl font-bold text-gray-100">\${escapeHtml(user.name)}</h1>
-                  \${user.school ? \`<div class="text-sm text-indigo-400">🎓 \${escapeHtml(user.school)}</div>\` : ''}
-                </div>
+        <div style="max-width:700px; margin:0 auto; display:flex; flex-direction:column; gap:20px;">
+          <div class="glass-card" style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div style="display:flex; gap:16px; align-items:center;">
+              <div style="width:56px; height:56px; border-radius:12px; background:#6366f1; font-size:1.5rem; font-weight:bold; color:white; display:flex; align-items:center; justify-content:center;">\${user.name.slice(0, 1).toUpperCase()}</div>
+              <div>
+                <h1 style="font-size:1.5rem; font-weight:bold;">\${escapeHtml(user.name)}</h1>
+                \${user.school ? \`<div class="text-muted text-sm">🎓 \${escapeHtml(user.school)}</div>\` : ''}
               </div>
-              \${isMe ? \`<button onclick="editProfileModal()" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-xs font-medium border border-gray-700">Edit Profile</button>\` : ''}
             </div>
-            \${user.bio ? \`<p class="text-sm text-gray-300 pt-2">\${escapeHtml(user.bio)}</p>\` : '<p class="text-xs text-gray-500 italic">No bio provided yet.</p>'}
-            \${user.skills && user.skills.length > 0 ? \`
-              <div class="flex flex-wrap gap-1.5 pt-2">
-                \${user.skills.map(s => \`<span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-800 border border-gray-700 text-gray-300">\${s}</span>\`).join('')}
-              </div>
-            \` : ''}
+            \${isMe ? \`<button onclick="editProfile()" class="btn btn-secondary btn-sm">Edit</button>\` : ''}
           </div>
-
-          <!-- Projects worked on -->
-          <div class="glass-card p-6 space-y-4">
-            <h3 class="font-semibold text-gray-200 text-base">Projects (\${user.projects ? user.projects.length : 0})</h3>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="glass-card" style="display:flex; flex-direction:column; gap:12px;">
+            <h3 style="font-weight:600;">Projects (\${user.projects ? user.projects.length : 0})</h3>
+            <div class="grid" style="grid-template-columns:1fr;">
               \${user.projects && user.projects.length > 0 ? user.projects.map(p => \`
-                <div onclick="navigate('project', '\${p.id}')" class="p-4 bg-gray-900 border border-gray-800 rounded-xl hover:border-indigo-500/40 cursor-pointer transition-all">
-                  <div class="font-medium text-gray-200 text-sm mb-1">\${escapeHtml(p.name)}</div>
-                  <div class="text-xs text-gray-500 line-clamp-2">\${escapeHtml(p.description)}</div>
+                <div onclick="navigate('project', '\${p.id}')" style="background:#111827; padding:12px; border-radius:8px; cursor:pointer;">
+                  <div style="font-weight:500;">\${escapeHtml(p.name)}</div>
+                  <div class="text-muted text-xs">\${escapeHtml(p.description)}</div>
                 </div>
-              \`).join('') : '<div class="text-gray-500 text-xs col-span-full">No public projects yet.</div>'}
+              \`).join('') : '<div class="text-muted text-xs">No projects yet.</div>'}
             </div>
           </div>
         </div>
       \`;
     }
 
-    function editProfileModal() {
+    function editProfile() {
       const bio = prompt("Update bio:", currentUser.bio || "");
       if (bio === null) return;
-      const school = prompt("Update school / institution:", currentUser.school || "");
+      const school = prompt("Update school:", currentUser.school || "");
       fetch('/api/users/' + currentUser.id, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -1581,28 +1556,25 @@ function getAppHTML() {
       });
     }
 
-    // --- 6. AUTH VIEWS (LOGIN / REGISTER) ---
+    // --- AUTH (LOGIN/REGISTER) ---
     function renderLoginView() {
       const root = document.getElementById('app-root');
       root.innerHTML = \`
-        <div class="max-w-md mx-auto glass-card p-8 space-y-6">
-          <div class="text-center">
-            <h1 class="text-2xl font-bold text-gray-100">Welcome Back</h1>
-            <p class="text-gray-400 text-xs mt-1">Sign in to your Pronnect local account</p>
-          </div>
-          <form onsubmit="handleLogin(event)" class="space-y-4">
+        <div class="glass-card" style="max-width:400px; margin:40px auto; display:flex; flex-direction:column; gap:16px;">
+          <h2 style="font-size:1.5rem; font-weight:bold; text-align:center;">Sign In</h2>
+          <form onsubmit="handleLogin(event)" style="display:flex; flex-direction:column; gap:12px;">
             <div>
-              <label class="block text-xs font-medium text-gray-300 mb-1">Email</label>
-              <input id="login-email" type="email" required value="alex@example.com" class="w-full px-3.5 py-2.5 bg-gray-900 border border-gray-700 rounded-lg text-sm text-gray-100 focus:outline-none focus:border-indigo-500" />
+              <label class="text-xs" style="margin-bottom:4px; display:block;">Email</label>
+              <input id="login-email" type="email" required value="alex@example.com" />
             </div>
             <div>
-              <label class="block text-xs font-medium text-gray-300 mb-1">Password</label>
-              <input id="login-password" type="password" required value="password123" class="w-full px-3.5 py-2.5 bg-gray-900 border border-gray-700 rounded-lg text-sm text-gray-100 focus:outline-none focus:border-indigo-500" />
+              <label class="text-xs" style="margin-bottom:4px; display:block;">Password</label>
+              <input id="login-password" type="password" required value="password123" />
             </div>
-            <button type="submit" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium shadow-lg shadow-indigo-600/30">Sign In</button>
+            <button type="submit" class="btn btn-primary" style="margin-top:8px;">Sign In</button>
           </form>
-          <div class="text-center text-xs text-gray-400">
-            Don't have an account? <button onclick="navigate('register')" class="text-indigo-400 font-medium hover:underline">Sign up</button>
+          <div style="text-align:center; font-size:0.75rem; color:#9ca3af;">
+            Don't have an account? <button onclick="navigate('register')" class="btn btn-secondary btn-sm">Sign Up</button>
           </div>
         </div>
       \`;
@@ -1631,32 +1603,29 @@ function getAppHTML() {
     function renderRegisterView() {
       const root = document.getElementById('app-root');
       root.innerHTML = \`
-        <div class="max-w-md mx-auto glass-card p-8 space-y-6">
-          <div class="text-center">
-            <h1 class="text-2xl font-bold text-gray-100">Create an Account</h1>
-            <p class="text-gray-400 text-xs mt-1">Start collaborating with makers locally</p>
-          </div>
-          <form onsubmit="handleRegister(event)" class="space-y-4">
+        <div class="glass-card" style="max-width:400px; margin:40px auto; display:flex; flex-direction:column; gap:16px;">
+          <h2 style="font-size:1.5rem; font-weight:bold; text-align:center;">Create Account</h2>
+          <form onsubmit="handleRegister(event)" style="display:flex; flex-direction:column; gap:12px;">
             <div>
-              <label class="block text-xs font-medium text-gray-300 mb-1">Full Name</label>
-              <input id="reg-name" required placeholder="Alex Rivera" class="w-full px-3.5 py-2.5 bg-gray-900 border border-gray-700 rounded-lg text-sm text-gray-100 focus:outline-none focus:border-indigo-500" />
+              <label class="text-xs" style="margin-bottom:4px; display:block;">Name</label>
+              <input id="reg-name" required placeholder="Alex Rivera" />
             </div>
             <div>
-              <label class="block text-xs font-medium text-gray-300 mb-1">Email</label>
-              <input id="reg-email" type="email" required placeholder="alex@example.com" class="w-full px-3.5 py-2.5 bg-gray-900 border border-gray-700 rounded-lg text-sm text-gray-100 focus:outline-none focus:border-indigo-500" />
+              <label class="text-xs" style="margin-bottom:4px; display:block;">Email</label>
+              <input id="reg-email" type="email" required placeholder="alex@example.com" />
             </div>
             <div>
-              <label class="block text-xs font-medium text-gray-300 mb-1">Password</label>
-              <input id="reg-password" type="password" required placeholder="••••••••" class="w-full px-3.5 py-2.5 bg-gray-900 border border-gray-700 rounded-lg text-sm text-gray-100 focus:outline-none focus:border-indigo-500" />
+              <label class="text-xs" style="margin-bottom:4px; display:block;">Password</label>
+              <input id="reg-password" type="password" required placeholder="••••••••" />
             </div>
             <div>
-              <label class="block text-xs font-medium text-gray-300 mb-1">School / College</label>
-              <input id="reg-school" placeholder="MIT, Stanford, etc." class="w-full px-3.5 py-2.5 bg-gray-900 border border-gray-700 rounded-lg text-sm text-gray-100 focus:outline-none focus:border-indigo-500" />
+              <label class="text-xs" style="margin-bottom:4px; display:block;">School / Institution</label>
+              <input id="reg-school" placeholder="MIT, Stanford, etc." />
             </div>
-            <button type="submit" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium shadow-lg shadow-indigo-600/30">Create Account</button>
+            <button type="submit" class="btn btn-primary" style="margin-top:8px;">Sign Up</button>
           </form>
-          <div class="text-center text-xs text-gray-400">
-            Already have an account? <button onclick="navigate('login')" class="text-indigo-400 font-medium hover:underline">Sign in</button>
+          <div style="text-align:center; font-size:0.75rem; color:#9ca3af;">
+            Already registered? <button onclick="navigate('login')" class="btn btn-secondary btn-sm">Sign In</button>
           </div>
         </div>
       \`;
@@ -1668,7 +1637,6 @@ function getAppHTML() {
       const email = document.getElementById('reg-email').value;
       const password = document.getElementById('reg-password').value;
       const school = document.getElementById('reg-school').value;
-
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1692,18 +1660,18 @@ function getAppHTML() {
       });
     }
 
-    // Start App
     init();
   </script>
 </body>
 </html>`;
 }
 
-// Start standalone server
+// Start standalone server on Port 5000 (and 3000 fallback)
 loadDB();
 server.listen(PORT, () => {
   console.log(`\n======================================================`);
   console.log(`🚀 Pronnect Standalone Server running WITHOUT npm!`);
   console.log(`👉 Open: http://localhost:${PORT}`);
+  console.log(`👉 Or:   http://127.0.0.1:${PORT}`);
   console.log(`======================================================\n`);
 });
