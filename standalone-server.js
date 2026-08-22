@@ -1582,12 +1582,13 @@ function getAppHTML() {
 </html>`;
 }
 
-// Start standalone server on Port 5000 (and 3000 fallback)
+// Start standalone server on Port 5000 (or Railway process.env.PORT)
 loadDB();
-server.listen(PORT, () => {
+server.listen(PORT, "0.0.0.0", () => {
   console.log(`\n======================================================`);
   console.log(`🚀 Pronnect Standalone Server running WITHOUT npm!`);
-  console.log(`👉 Open: http://localhost:${PORT}`);
-  console.log(`👉 Or:   http://127.0.0.1:${PORT}`);
+  console.log(`👉 Host: http://0.0.0.0:${PORT}`);
+  console.log(`👉 Local: http://localhost:${PORT}`);
   console.log(`======================================================\n`);
 });
+
