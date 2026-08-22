@@ -1557,6 +1557,21 @@
     }
 
     // --- FILE & MEDIA HELPER STATE ---
+    // --- PROFANITY & SENSITIVE CONTENT CENSORSHIP FILTER ---
+    const BANNED_PATTERNS = [
+      /\b(fuck|fucking|fucker|shit|shitting|bitch|bitches|asshole|bastard|dick|dicks|pussy|cunt|nigger|nigga|faggot|slut|whore|retard|scam|scammer)\b/gi
+    ];
+
+    function censorProfanity(text) {
+      if (!text) return text;
+      let cleaned = String(text);
+      BANNED_PATTERNS.forEach(regex => {
+        cleaned = cleaned.replace(regex, match => '*'.repeat(match.length));
+      });
+      return cleaned;
+    }
+
+    // --- FILE & MEDIA HELPER STATE ---
     let stagedFiles = { project: null, global: null };
 
     function formatFileSize(bytes) {
@@ -1620,6 +1635,171 @@
       `;
     }
 
+    // --- QUICK LINK SHARING IN CHATS ---
+    function showShareLinkModal(scope, projId = '') {
+      if (!currentUser) { showAuthModal('signup'); return; }
+      openModal("🔗 Share Link in Chat", `
+        <form onsubmit="handleSendLinkMessage(event, '${scope}', '${projId}')" style="display:flex; flex-direction:column; gap:14px;">
+          <div>
+            <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Link Title / Name *</label>
+            <input id="modal-link-title" required placeholder="e.g. Figma UI Kit, GitHub Repo, Research Paper" autofocus />
+          </div>
+          <div>
+            <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">URL Address * (https://...)</label>
+            <input id="modal-link-url" type="url" required placeholder="https://..." />
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
+            <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+            <button type="submit" class="btn btn-primary" style="flex:1;">🔗 Share in Chat &rarr;</button>
+          </div>
+        </form>
+      `);
+    }
+
+    async function handleSendLinkMessage(e, scope, projId) {
+      e.preventDefault();
+      const title = censorProfanity(document.getElementById('modal-link-title').value.trim());
+      const url = document.getElementById('modal-link-url').value.trim();
+      if (!title || !url) return;
+
+      const newMsg = {
+        id: "msg_link_" + Date.now(),
+        projectId: scope === 'project' ? projId : null,
+        senderId: currentUser.id,
+        content: `🔗 ${title}: ${url}`,
+        link: { title, url },
+        createdAt: new Date().toISOString()
+      };
+
+      if (scope === 'project' && projId) {
+        store.media.push({
+          id: "med_" + Date.now(),
+          projectId: projId,
+          name: title,
+          url: url,
+          type: "link",
+          sharedBy: currentUser.name,
+          createdAt: new Date().toISOString()
+        });
+      }
+
+      store.messages.push(newMsg);
+      await saveState();
+      closeModal();
+      if (scope === 'project') loadProjectChat(projId);
+      else loadGlobalChat();
+      showToast("Link shared!");
+    }
+
+    // --- AUDIO / VOICE MESSAGE RECORDER ---
+    let audioRecorder = null;
+    let audioRecordChunks = [];
+    let isRecordingVoice = false;
+    let voiceTimer = null;
+    let voiceSeconds = 0;
+
+    async function toggleAudioRecording(scope, projId = '') {
+      if (isRecordingVoice) {
+        stopAudioRecording(scope, projId, true);
+      } else {
+        startAudioRecording(scope, projId);
+      }
+    }
+
+    async function startAudioRecording(scope, projId = '') {
+      if (!currentUser) { showAuthModal('signup'); return; }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioRecordChunks = [];
+        audioRecorder = new MediaRecorder(stream);
+
+        audioRecorder.ondataavailable = e => {
+          if (e.data.size > 0) audioRecordChunks.push(e.data);
+        };
+
+        audioRecorder.onstop = async () => {
+          const audioBlob = new Blob(audioRecordChunks, { type: 'audio/webm' });
+          stream.getTracks().forEach(t => t.stop());
+
+          if (audioBlob.size > 100) {
+            const reader = new FileReader();
+            reader.onload = async function(evt) {
+              const base64Audio = evt.target.result;
+              await sendVoiceMessage(base64Audio, scope, projId);
+            };
+            reader.readAsDataURL(audioBlob);
+          }
+        };
+
+        audioRecorder.start();
+        isRecordingVoice = true;
+        voiceSeconds = 0;
+        updateAudioRecordingUI(scope, true);
+
+        voiceTimer = setInterval(() => {
+          voiceSeconds++;
+          const timerEl = document.getElementById(scope + '-recording-timer');
+          if (timerEl) {
+            const mins = Math.floor(voiceSeconds / 60);
+            const secs = voiceSeconds % 60;
+            timerEl.innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+          }
+        }, 1000);
+      } catch (err) {
+        showToast("Microphone access unavailable or denied.", true);
+      }
+    }
+
+    function stopAudioRecording(scope, projId = '', send = true) {
+      if (!isRecordingVoice || !audioRecorder) return;
+      if (voiceTimer) { clearInterval(voiceTimer); voiceTimer = null; }
+      if (!send) audioRecordChunks = [];
+      audioRecorder.stop();
+      isRecordingVoice = false;
+      updateAudioRecordingUI(scope, false);
+    }
+
+    function updateAudioRecordingUI(scope, recording) {
+      const bar = document.getElementById(scope + '-audio-bar');
+      const micBtn = document.getElementById(scope + '-mic-btn');
+      if (bar) bar.style.display = recording ? 'flex' : 'none';
+      if (micBtn) {
+        micBtn.style.color = recording ? '#ff4d4f' : 'inherit';
+        micBtn.innerHTML = recording ? '⏹️' : '🎙️';
+      }
+    }
+
+    async function sendVoiceMessage(audioData, scope, projId = '') {
+      if (!currentUser) return;
+      const newMsg = {
+        id: "msg_voice_" + Date.now(),
+        projectId: scope === 'project' ? projId : null,
+        senderId: currentUser.id,
+        content: "🎙️ Voice Message",
+        audio: { data: audioData, duration: voiceSeconds },
+        createdAt: new Date().toISOString()
+      };
+
+      if (scope === 'project' && projId) {
+        store.media.push({
+          id: "med_voice_" + Date.now(),
+          projectId: projId,
+          name: `Voice Audio from ${currentUser.name}`,
+          url: audioData,
+          type: "audio/webm",
+          size: Math.round(audioData.length * 0.75),
+          sharedBy: currentUser.name,
+          createdAt: new Date().toISOString()
+        });
+      }
+
+      store.messages.push(newMsg);
+      await saveState();
+      if (scope === 'project') loadProjectChat(projId);
+      else loadGlobalChat();
+      showToast("Voice message sent!");
+    }
+
     function openImageModal(imgSrc) {
       openModal("🖼️ Media Preview", `
         <div style="text-align:center; padding:10px 0;">
@@ -1637,7 +1817,7 @@
         <div style="display:flex; flex-direction:column; gap:14px; padding:10px 0; max-height:70vh; overflow-y:auto;">
           <div style="border-left:3px solid var(--c-burgundy); padding-left:12px;">
             <div style="font-weight:700; color:var(--c-cream); font-size:0.95rem;">1. Respect & Inclusivity</div>
-            <p class="text-muted text-xs" style="margin-top:2px;">Treat all builders, student developers, and designers with empathy and mutual respect. No harassment or discriminatory language.</p>
+            <p class="text-muted text-xs" style="margin-top:2px;">Treat all builders, student developers, and designers with empathy and mutual respect. No harassment, abusive slang, or discriminatory language.</p>
           </div>
           <div style="border-left:3px solid var(--c-sand); padding-left:12px;">
             <div style="font-weight:700; color:var(--c-cream); font-size:0.95rem;">2. Constructive Collaboration</div>
@@ -1648,7 +1828,7 @@
             <p class="text-muted text-xs" style="margin-top:2px;">Never upload malware, malicious scripts, credentials, API keys, or copyrighted work without proper rights.</p>
           </div>
           <div style="border-left:3px solid var(--c-sand); padding-left:12px;">
-            <div style="font-weight:700; color:var(--c-cream); font-size:0.95rem;">4. Zero Tolerance for Spam</div>
+            <div style="font-weight:700; color:var(--c-cream); font-size:0.95rem;">4. Zero Tolerance for Spam & Scams</div>
             <p class="text-muted text-xs" style="margin-top:2px;">Do not flood chat channels with unsolicited commercial promotions, bot spam, or repetitive link dumping.</p>
           </div>
           <div style="border-left:3px solid var(--c-burgundy); padding-left:12px;">
@@ -1660,7 +1840,7 @@
       `);
     }
 
-    // --- TEAM CHAT (WITH FILE/MEDIA SHARING & ONLINE PRESENCE) ---
+    // --- TEAM CHAT (WITH FILE/MEDIA SHARING, AUDIO MESSAGES, LINKS & PRESENCE) ---
     function loadProjectChat(projId) {
       const container = document.getElementById('project-tab-content');
       if (!container) return;
@@ -1672,10 +1852,24 @@
             <div id="project-typing-indicator" class="typing-indicator" style="display:none;"></div>
             <div id="project-file-preview" style="display:none; margin-bottom:-4px;"></div>
             
-            <form onsubmit="sendProjectMessage(event, '${projId}')" style="display:flex; gap:8px; align-items:center;">
+            <!-- Voice Recording Active Banner -->
+            <div id="project-audio-bar" style="display:none; background:rgba(125,64,71,0.3); border:1px solid var(--c-burgundy); border-radius:8px; padding:8px 12px; align-items:center; justify-content:space-between;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span class="status-dot" style="background:#ff4d4f; box-shadow:0 0 8px #ff4d4f;"></span>
+                <span style="font-weight:600; font-size:0.85rem; color:var(--c-cream);">Recording Audio... <span id="project-recording-timer" style="font-family:monospace; margin-left:6px;">0:00</span></span>
+              </div>
+              <div style="display:flex; gap:8px;">
+                <button type="button" onclick="stopAudioRecording('project', '${projId}', false)" class="btn btn-secondary btn-sm" style="font-size:10px; padding:3px 8px;">✕ Cancel</button>
+                <button type="button" onclick="stopAudioRecording('project', '${projId}', true)" class="btn btn-primary btn-sm" style="font-size:10px; padding:3px 10px;">⏹️ Send Voice</button>
+              </div>
+            </div>
+
+            <form onsubmit="sendProjectMessage(event, '${projId}')" style="display:flex; gap:6px; align-items:center; flex-wrap:nowrap;">
               <input type="file" id="project-file-input" onchange="handleFileSelected(event, 'project')" style="display:none;" />
-              <button type="button" onclick="triggerFileInput('project')" class="btn btn-secondary" title="Attach image or file" style="padding:10px 12px; font-size:1.1rem;">📎</button>
-              <input id="proj-msg-input" oninput="handleTyping('proj_' + '${projId}')" placeholder="Type a message or attach a file..." style="flex:1;" />
+              <button type="button" onclick="triggerFileInput('project')" class="btn btn-secondary" title="Attach file or media" style="padding:10px 11px; font-size:1.05rem;">📎</button>
+              <button type="button" onclick="showShareLinkModal('project', '${projId}')" class="btn btn-secondary" title="Share link" style="padding:10px 11px; font-size:1.05rem;">🔗</button>
+              <button type="button" id="project-mic-btn" onclick="toggleAudioRecording('project', '${projId}')" class="btn btn-secondary" title="Record voice message" style="padding:10px 11px; font-size:1.05rem;">🎙️</button>
+              <input id="proj-msg-input" oninput="handleTyping('proj_' + '${projId}')" placeholder="Type a message, record voice, or attach files..." style="flex:1;" />
               <button type="submit" class="btn btn-primary">Send</button>
             </form>
           </div>
@@ -1693,7 +1887,7 @@
       const msgs = store.messages.filter(m => m.projectId === projId);
       const box = document.getElementById('chat-messages');
       if (msgs.length === 0) {
-        box.innerHTML = '<div style="text-align:center; color:var(--c-sand); margin:auto;">No messages yet. Start the conversation or share files! 👋</div>';
+        box.innerHTML = '<div style="text-align:center; color:var(--c-sand); margin:auto;">No messages yet. Start the conversation, share files, or record audio! 👋</div>';
       } else {
         box.innerHTML = msgs.map(m => {
           const isMe = currentUser && m.senderId === currentUser.id;
@@ -1717,12 +1911,36 @@
             }
           }
 
+          let audioMarkup = '';
+          if (m.audio && m.audio.data) {
+            audioMarkup = `
+              <div style="margin-top:6px; display:flex; flex-direction:column; gap:4px;">
+                <audio controls src="${m.audio.data}" style="height:36px; max-width:240px; border-radius:18px; outline:none;"></audio>
+              </div>
+            `;
+          }
+
+          let linkMarkup = '';
+          if (m.link) {
+            linkMarkup = `
+              <a href="${escapeHtml(m.link.url)}" target="_blank" style="display:flex; align-items:center; gap:8px; background:rgba(0,0,0,0.3); border:1px solid var(--c-burgundy); padding:8px 12px; border-radius:8px; margin-top:6px; text-decoration:none; color:inherit;">
+                <span style="font-size:1.1rem;">🔗</span>
+                <div style="overflow:hidden;">
+                  <div style="font-weight:600; font-size:0.75rem; color:var(--c-cream); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(m.link.title)}</div>
+                  <div class="text-muted text-xs" style="font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(m.link.url)}</div>
+                </div>
+              </a>
+            `;
+          }
+
           return `
             <div style="display:flex; flex-direction:column; align-items:${isMe ? 'flex-end' : 'flex-start'};">
               <div class="text-muted text-xs" style="margin-bottom:2px;">${escapeHtml(sender.name)}</div>
               <div class="msg-bubble ${isMe ? 'msg-me' : 'msg-other'}">
-                ${m.content ? `<div>${escapeHtml(m.content)}</div>` : ''}
+                ${m.content && !m.link && !m.audio ? `<div>${escapeHtml(censorProfanity(m.content))}</div>` : ''}
                 ${fileMarkup}
+                ${audioMarkup}
+                ${linkMarkup}
               </div>
             </div>
           `;
@@ -1810,11 +2028,12 @@
       if (countBadge) countBadge.innerText = Math.max(1, onlineCount);
     }
 
-    function sendProjectMessage(e, projId) {
+    async function sendProjectMessage(e, projId) {
       e.preventDefault();
       if (!currentUser) { showAuthModal('signup'); return; }
       const input = document.getElementById('proj-msg-input');
-      const content = input ? input.value.trim() : '';
+      const rawContent = input ? input.value.trim() : '';
+      const content = censorProfanity(rawContent);
       const attachedFile = stagedFiles.project;
 
       if (!content && !attachedFile) return;
@@ -1825,17 +2044,32 @@
         delete store.typing['proj_' + projId];
       }
 
-      store.messages.push({
+      const newMsg = {
         id: "msg_" + Date.now(),
         projectId: projId,
         senderId: currentUser.id,
         content: content,
         file: attachedFile || null,
         createdAt: new Date().toISOString()
-      });
+      };
 
+      // Auto-populate Project Media Section with uploaded file!
+      if (attachedFile) {
+        store.media.push({
+          id: "med_file_" + Date.now(),
+          projectId: projId,
+          name: attachedFile.name,
+          url: attachedFile.data,
+          type: attachedFile.type,
+          size: attachedFile.size,
+          sharedBy: currentUser.name,
+          createdAt: new Date().toISOString()
+        });
+      }
+
+      store.messages.push(newMsg);
       clearStagedFile('project');
-      saveState();
+      await saveState();
       loadProjectChat(projId);
     }
 
@@ -2077,8 +2311,11 @@
       if (!container) return;
       container.innerHTML = `
         <div style="display:flex; flex-direction:column; gap:16px;">
-          <div class="flex justify-between items-center">
-            <h3 style="font-weight:600;">Media & Resources</h3>
+          <div class="flex justify-between items-center" style="flex-wrap:wrap; gap:10px;">
+            <div>
+              <h3 style="font-weight:600;">Media & Resources</h3>
+              <p class="text-muted text-xs">Files, documents, audio clips, and links shared in workspace & chat</p>
+            </div>
             <button onclick="showAddMediaModal('${projId}')" class="btn btn-primary btn-sm">+ Add Resource</button>
           </div>
           <div id="media-grid" class="grid grid-3"></div>
@@ -2087,18 +2324,44 @@
       const items = store.media.filter(m => m.projectId === projId);
       const grid = document.getElementById('media-grid');
       if (items.length === 0) {
-        grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:30px; color:var(--c-sand);">No resources shared yet.</div>';
+        grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:30px; color:var(--c-sand);">No media or resources shared yet. Files and links shared in chat will automatically appear here!</div>';
         return;
       }
-      grid.innerHTML = items.map(m => `
-        <a href="${escapeHtml(m.url)}" target="_blank" class="glass-card" style="text-decoration:none; color:inherit; display:flex; gap:12px; align-items:flex-start;">
-          <div style="font-size:1.5rem;">🔗</div>
-          <div style="overflow:hidden;">
-            <div style="font-weight:500; font-size:0.875rem; color:var(--c-cream);">${escapeHtml(m.name)}</div>
-            <div class="text-muted text-xs" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(m.url)}</div>
+      grid.innerHTML = items.map(m => {
+        const isImage = m.type && m.type.startsWith('image/');
+        const isAudio = m.type && m.type.startsWith('audio/');
+        const isLink = m.type === 'link' || (!m.type && m.url && m.url.startsWith('http'));
+        
+        let previewHtml = '';
+        if (isImage) {
+          previewHtml = `<img src="${m.url}" onclick="openImageModal('${m.url}')" style="width:46px; height:46px; border-radius:8px; object-fit:cover; cursor:pointer;" />`;
+        } else if (isAudio) {
+          previewHtml = `<div style="font-size:1.5rem;">🎙️</div>`;
+        } else if (isLink) {
+          previewHtml = `<div style="font-size:1.5rem;">🔗</div>`;
+        } else {
+          previewHtml = `<div style="font-size:1.5rem;">📁</div>`;
+        }
+
+        return `
+          <div class="glass-card" style="display:flex; gap:12px; align-items:center; justify-content:space-between; padding:14px;">
+            <div style="display:flex; gap:12px; align-items:center; overflow:hidden;">
+              ${previewHtml}
+              <div style="overflow:hidden;">
+                <div style="font-weight:600; font-size:0.85rem; color:var(--c-cream); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(m.name)}</div>
+                <div class="text-muted text-xs" style="font-size:10px;">${m.size ? formatFileSize(m.size) : (m.sharedBy ? 'By ' + escapeHtml(m.sharedBy) : 'Resource Link')}</div>
+              </div>
+            </div>
+            <div>
+              ${isLink ? `
+                <a href="${escapeHtml(m.url)}" target="_blank" class="btn btn-secondary btn-sm" style="font-size:11px; padding:4px 8px;">Open ↗</a>
+              ` : `
+                <a href="${m.url}" download="${escapeHtml(m.name)}" class="btn btn-secondary btn-sm" style="font-size:11px; padding:4px 8px;">⬇️</a>
+              `}
+            </div>
           </div>
-        </a>
-      `).join('');
+        `;
+      }).join('');
     }
 
     // In-App Modal for Adding Media / Links (No browser popup!)
@@ -2132,7 +2395,10 @@
         id: "med_" + Date.now(),
         projectId: projId,
         name,
-        url
+        url,
+        type: "link",
+        sharedBy: currentUser ? currentUser.name : "Member",
+        createdAt: new Date().toISOString()
       });
 
       saveState();
@@ -2181,10 +2447,18 @@
       `;
     }
 
-    // --- JOIN REQUESTS ---
+    // --- JOIN REQUESTS (ONLY PROJECT LEADER CAN APPROVE OR DENY) ---
     function loadProjectRequests(projId) {
       const container = document.getElementById('project-tab-content');
       if (!container) return;
+      const proj = store.projects.find(p => p.id === projId);
+      const isLeader = proj && currentUser && proj.leaderId === currentUser.id;
+
+      if (!isLeader) {
+        container.innerHTML = '<div class="glass-card" style="text-align:center; padding:30px; color:var(--c-burgundy);">🔒 Access Restricted: Only the project leader can view and approve member requests.</div>';
+        return;
+      }
+
       const requests = store.joinRequests.filter(r => r.projectId === projId && r.status === 'PENDING');
       container.innerHTML = `
         <div class="glass-card" style="display:flex; flex-direction:column; gap:16px;">
@@ -2212,16 +2486,25 @@
     }
 
     function handleJoinRequest(reqId, action, projId) {
+      const proj = store.projects.find(p => p.id === projId);
+      if (!proj || !currentUser || proj.leaderId !== currentUser.id) {
+        showToast("Unauthorized: Only the project leader can approve or deny requests!", true);
+        return;
+      }
+
       const r = store.joinRequests.find(x => x.id === reqId);
       if (r) {
         r.status = action;
         if (action === 'APPROVED') {
-          store.members.push({ projectId: projId, userId: r.userId });
+          if (!store.members.some(m => m.projectId === projId && m.userId === r.userId)) {
+            store.members.push({ projectId: projId, userId: r.userId });
+          }
         }
         saveState();
       }
-      showToast(action === 'APPROVED' ? 'Member approved!' : 'Denied');
+      showToast(action === 'APPROVED' ? 'Member approved!' : 'Request denied.');
       loadProjectRequests(projId);
+      renderProjectView(projId);
     }
 
     // --- CREATE NEW PROJECT ---
@@ -2321,7 +2604,7 @@
       navigate('project', newProj.id);
     }
 
-    // --- GLOBAL COMMUNITY CHAT (WITH FILE/MEDIA SHARING & ONLINE PRESENCE) ---
+    // --- GLOBAL COMMUNITY CHAT (WITH IN-CHAT GUIDELINES, AUDIO, LINKS & MEDIA) ---
     function renderGlobalChatView() {
       const root = document.getElementById('app-root');
       root.innerHTML = `
@@ -2332,9 +2615,21 @@
               <p class="text-muted text-xs">Live platform-wide chat for all profiles across all networks</p>
             </div>
             <div style="display:flex; gap:8px; align-items:center;">
-              <button onclick="showCommunityGuidelinesModal()" class="btn btn-secondary btn-sm" style="font-size:11px;">📜 Community Guidelines</button>
+              <button onclick="showCommunityGuidelinesModal()" class="btn btn-secondary btn-sm" style="font-size:11px;">📜 View Guidelines</button>
               <span class="badge badge-green"><span class="status-dot status-online" style="margin-right:4px;"></span> Global Mesh Active</span>
             </div>
+          </div>
+
+          <!-- In-Chat Community Guidelines Banner -->
+          <div class="glass-card" style="background:linear-gradient(135deg, rgba(125,64,71,0.22), rgba(46,46,46,0.9)); border:1px solid rgba(125,64,71,0.4); padding:12px 16px; display:flex; justify-content:space-between; align-items:center; border-radius:10px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span style="font-size:1.4rem;">📜</span>
+              <div>
+                <div style="font-weight:700; font-size:0.85rem; color:var(--c-cream);">Community Guidelines & Profanity Filtering Active</div>
+                <div class="text-muted text-xs" style="font-size:11px;">Respect collaborators. Zero tolerance for spam, abusive slang, or uncredited work.</div>
+              </div>
+            </div>
+            <button onclick="showCommunityGuidelinesModal()" class="btn btn-secondary btn-sm" style="font-size:11px; padding:4px 10px;">Rules &rarr;</button>
           </div>
 
           <div class="chat-layout">
@@ -2347,10 +2642,24 @@
               <!-- File Preview Bar -->
               <div id="global-file-preview" style="display:none; margin-bottom:-4px;"></div>
 
-              <form onsubmit="sendGlobalMessage(event)" style="display:flex; gap:8px; align-items:center;">
+              <!-- Audio Recording Bar -->
+              <div id="global-audio-bar" style="display:none; background:rgba(125,64,71,0.3); border:1px solid var(--c-burgundy); border-radius:8px; padding:8px 12px; align-items:center; justify-content:space-between;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span class="status-dot" style="background:#ff4d4f; box-shadow:0 0 8px #ff4d4f;"></span>
+                  <span style="font-weight:600; font-size:0.85rem; color:var(--c-cream);">Recording Audio... <span id="global-recording-timer" style="font-family:monospace; margin-left:6px;">0:00</span></span>
+                </div>
+                <div style="display:flex; gap:8px;">
+                  <button type="button" onclick="stopAudioRecording('global', '', false)" class="btn btn-secondary btn-sm" style="font-size:10px; padding:3px 8px;">✕ Cancel</button>
+                  <button type="button" onclick="stopAudioRecording('global', '', true)" class="btn btn-primary btn-sm" style="font-size:10px; padding:3px 10px;">⏹️ Send Voice</button>
+                </div>
+              </div>
+
+              <form onsubmit="sendGlobalMessage(event)" style="display:flex; gap:6px; align-items:center; flex-wrap:nowrap;">
                 <input type="file" id="global-file-input" onchange="handleFileSelected(event, 'global')" style="display:none;" />
-                <button type="button" onclick="triggerFileInput('global')" ${!currentUser ? 'disabled' : ''} class="btn btn-secondary" title="Attach file or media" style="padding:10px 12px; font-size:1.1rem;">📎</button>
-                <input id="global-msg-input" oninput="handleTyping('global')" placeholder="${currentUser ? 'Type a message or attach a file...' : 'Sign in / Create Account to chat...'}" ${!currentUser ? 'disabled' : ''} style="flex:1;" />
+                <button type="button" onclick="triggerFileInput('global')" ${!currentUser ? 'disabled' : ''} class="btn btn-secondary" title="Attach file or media" style="padding:10px 11px; font-size:1.05rem;">📎</button>
+                <button type="button" onclick="showShareLinkModal('global')" ${!currentUser ? 'disabled' : ''} class="btn btn-secondary" title="Share link" style="padding:10px 11px; font-size:1.05rem;">🔗</button>
+                <button type="button" id="global-mic-btn" onclick="toggleAudioRecording('global')" ${!currentUser ? 'disabled' : ''} class="btn btn-secondary" title="Record voice message" style="padding:10px 11px; font-size:1.05rem;">🎙️</button>
+                <input id="global-msg-input" oninput="handleTyping('global')" placeholder="${currentUser ? 'Type a message, record voice, or share links...' : 'Sign in / Create Account to chat...'}" ${!currentUser ? 'disabled' : ''} style="flex:1;" />
                 <button type="submit" ${!currentUser ? 'disabled' : ''} class="btn btn-primary">Send</button>
               </form>
             </div>
@@ -2400,12 +2709,36 @@
             }
           }
 
+          let audioMarkup = '';
+          if (m.audio && m.audio.data) {
+            audioMarkup = `
+              <div style="margin-top:6px; display:flex; flex-direction:column; gap:4px;">
+                <audio controls src="${m.audio.data}" style="height:36px; max-width:240px; border-radius:18px; outline:none;"></audio>
+              </div>
+            `;
+          }
+
+          let linkMarkup = '';
+          if (m.link) {
+            linkMarkup = `
+              <a href="${escapeHtml(m.link.url)}" target="_blank" style="display:flex; align-items:center; gap:8px; background:rgba(0,0,0,0.3); border:1px solid var(--c-burgundy); padding:8px 12px; border-radius:8px; margin-top:6px; text-decoration:none; color:inherit;">
+                <span style="font-size:1.1rem;">🔗</span>
+                <div style="overflow:hidden;">
+                  <div style="font-weight:600; font-size:0.75rem; color:var(--c-cream); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(m.link.title)}</div>
+                  <div class="text-muted text-xs" style="font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(m.link.url)}</div>
+                </div>
+              </a>
+            `;
+          }
+
           return `
             <div style="display:flex; flex-direction:column; align-items:${isMe ? 'flex-end' : 'flex-start'};">
               <div class="text-muted text-xs" style="margin-bottom:2px;">${escapeHtml(sender.name)}</div>
               <div class="msg-bubble ${isMe ? 'msg-me' : 'msg-other'}">
-                ${m.content ? `<div>${escapeHtml(m.content)}</div>` : ''}
+                ${m.content && !m.link && !m.audio ? `<div>${escapeHtml(censorProfanity(m.content))}</div>` : ''}
                 ${fileMarkup}
+                ${audioMarkup}
+                ${linkMarkup}
               </div>
             </div>
           `;
@@ -2419,7 +2752,8 @@
       e.preventDefault();
       if (!currentUser) { showAuthModal('signup'); return; }
       const input = document.getElementById('global-msg-input');
-      const content = input ? input.value.trim() : '';
+      const rawContent = input ? input.value.trim() : '';
+      const content = censorProfanity(rawContent);
       const attachedFile = stagedFiles.global;
 
       if (!content && !attachedFile) return;
@@ -2444,9 +2778,38 @@
       loadGlobalChat();
     }
 
-
     // --- FIGMA-INSPIRED USER PROFILE (Node 612-88) ---
     let activeProfileTab = 'overview';
+    let stagedProfilePfp = null;
+    let stagedProfileCover = null;
+
+    function handlePfpUpload(e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        stagedProfilePfp = evt.target.result;
+        const preview = document.getElementById('edit-pfp-preview');
+        if (preview) preview.src = stagedProfilePfp;
+        const urlInput = document.getElementById('edit-picture');
+        if (urlInput) urlInput.value = stagedProfilePfp;
+        showToast("Profile picture selected!");
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function handleCoverUpload(e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        stagedProfileCover = evt.target.result;
+        const bgInput = document.getElementById('edit-cover-bg');
+        if (bgInput) bgInput.value = `url('${stagedProfileCover}') center/cover no-repeat`;
+        showToast("Cover background selected!");
+      };
+      reader.readAsDataURL(file);
+    }
 
     function renderProfileView(userId) {
       const root = document.getElementById('app-root');
@@ -2466,21 +2829,23 @@
 
       const avatarLetter = (user.name || 'U').slice(0, 1).toUpperCase();
       const skills = user.skills && user.skills.length > 0 ? user.skills : ['Full-Stack', 'UI/UX', 'AI/ML', 'Problem Solving'];
+      const interests = user.interests && user.interests.length > 0 ? user.interests : ['Autonomous Robotics', 'Hackathons', 'Web3', 'AI Systems'];
       const headline = user.headline || (user.school ? `Builder & Student at ${user.school}` : 'Collaborator & Project Builder');
       const bio = user.bio || 'Passionate about assembling high-performance teams, shipping hackathon projects, and building innovative software.';
+      const coverStyle = user.coverBg || 'linear-gradient(135deg, #2E2E2E 0%, #3e282b 40%, #7D4047 100%)';
 
       root.innerHTML = `
         <div style="max-width:960px; margin:0 auto; display:flex; flex-direction:column; gap:24px; position:relative;">
           
           <!-- Top Profile Banner & Card -->
           <div class="glass-card" style="padding:0; overflow:hidden; border:1px solid rgba(125,64,71,0.4); position:relative;">
-            <!-- Mesh Header Cover -->
-            <div style="height:160px; background:linear-gradient(135deg, #2E2E2E 0%, #3e282b 40%, #7D4047 100%); position:relative;">
+            <!-- Mesh Header Cover (Custom Background) -->
+            <div id="profile-banner-cover" style="height:170px; background:${escapeHtml(coverStyle)}; background-size:cover; background-position:center; position:relative;">
               <div style="position:absolute; inset:0; background:radial-gradient(circle at 80% 20%, rgba(221,213,205,0.2) 0%, transparent 60%);"></div>
               <div style="position:absolute; bottom:12px; right:16px; display:flex; gap:8px;">
                 ${isMe ? `
                   <button onclick="switchProfileTab('edit')" class="btn btn-secondary btn-sm" style="background:rgba(46,46,46,0.85); backdrop-filter:blur(8px);">
-                    ✏️ Edit Profile
+                    ✏️ Edit Profile Settings
                   </button>
                 ` : `
                   <button onclick="copyProfileLink('${user.id}')" class="btn btn-secondary btn-sm" style="background:rgba(46,46,46,0.85); backdrop-filter:blur(8px);">
@@ -2513,18 +2878,18 @@
                       <span class="badge badge-green" style="font-size:10px;">✓ Verified Collaborator</span>
                     </div>
                     <p class="text-muted text-sm" style="margin-top:2px;">${escapeHtml(headline)}</p>
-                    <div style="display:flex; align-items:center; gap:12px; margin-top:4px; font-size:0.8rem; color:var(--c-sand);">
-                      <span>📧 ${escapeHtml(user.email || 'Google Connected')}</span>
+                    <div style="display:flex; align-items:center; gap:12px; margin-top:4px; font-size:0.8rem; color:var(--c-sand); flex-wrap:wrap;">
+                      <span>📧 ${escapeHtml(user.email || 'Email Verified')}</span>
                       ${user.school ? `<span>🎓 ${escapeHtml(user.school)}</span>` : ''}
                     </div>
                   </div>
                 </div>
 
-                <!-- Google Connected Pill -->
+                <!-- Verified Account Pill -->
                 <div style="margin-bottom:8px;">
                   <div class="glass-pill" style="padding:6px 14px; display:flex; align-items:center; gap:8px; font-size:0.75rem; color:var(--c-cream);">
                     <svg width="14" height="14" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
-                    <span>Google Account Active</span>
+                    <span>Google & Pronnect Verified</span>
                   </div>
                 </div>
               </div>
@@ -2581,10 +2946,11 @@
 
       if (tab === 'overview') {
         const skills = user.skills && user.skills.length > 0 ? user.skills : ['Full-Stack', 'UI/UX', 'AI/ML', 'Problem Solving'];
+        const interests = user.interests && user.interests.length > 0 ? user.interests : ['Autonomous Robotics', 'Hackathons', 'Web3', 'AI Systems'];
         const bio = user.bio || 'Passionate about assembling high-performance teams, shipping hackathon projects, and building innovative software.';
 
         content.innerHTML = `
-          <div style="display:grid; grid-template-columns:2fr 1fr; gap:20px;">
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:20px;">
             <div style="display:flex; flex-direction:column; gap:20px;">
               <!-- About Bio Box -->
               <div class="glass-card" style="display:flex; flex-direction:column; gap:12px;">
@@ -2599,20 +2965,40 @@
                   ${skills.map(s => `<span class="badge badge-indigo" style="padding:6px 12px; font-size:0.8rem;">⚡ ${escapeHtml(s)}</span>`).join('')}
                 </div>
               </div>
+
+              <!-- Interests & Passions Box -->
+              <div class="glass-card" style="display:flex; flex-direction:column; gap:12px;">
+                <h3 style="font-size:1.1rem; font-weight:700;">Interests & Collaboration Focus</h3>
+                <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                  ${interests.map(i => `<span class="badge badge-green" style="padding:6px 12px; font-size:0.8rem;">🎯 ${escapeHtml(i)}</span>`).join('')}
+                </div>
+              </div>
             </div>
 
             <div style="display:flex; flex-direction:column; gap:20px;">
-              <!-- Links & Contact Info -->
+              <!-- Connected Channels & Social Links -->
               <div class="glass-card" style="display:flex; flex-direction:column; gap:14px;">
                 <h3 style="font-size:1.1rem; font-weight:700;">Connected Channels</h3>
-                <div style="display:flex; flex-direction:column; gap:10px; font-size:0.85rem;">
+                <div style="display:flex; flex-direction:column; gap:12px; font-size:0.85rem;">
                   <div style="display:flex; align-items:center; gap:8px; color:var(--c-sand);">
                     <span>🐙 GitHub:</span>
-                    <a href="${user.githubUrl || '#'}" target="_blank" style="color:var(--c-sand); text-decoration:underline;">${user.githubUrl ? escapeHtml(user.githubUrl.replace(/^https?:\/\//, '')) : 'github.com/' + (user.name || '').toLowerCase().replace(/\s+/g, '')}</a>
+                    <a href="${user.githubUrl || '#'}" target="_blank" style="color:var(--c-sand); text-decoration:underline;">${user.githubUrl ? escapeHtml(user.githubUrl.replace(/^https?:\/\//, '')) : 'Not set'}</a>
                   </div>
                   <div style="display:flex; align-items:center; gap:8px; color:var(--c-sand);">
-                    <span>💼 Portfolio:</span>
-                    <a href="${user.portfolioUrl || '#'}" target="_blank" style="color:var(--c-sand); text-decoration:underline;">${user.portfolioUrl ? escapeHtml(user.portfolioUrl.replace(/^https?:\/\//, '')) : 'pronnect.app/@' + (user.name || '').toLowerCase().replace(/\s+/g, '')}</a>
+                    <span>💼 LinkedIn:</span>
+                    <a href="${user.linkedinUrl || '#'}" target="_blank" style="color:var(--c-sand); text-decoration:underline;">${user.linkedinUrl ? escapeHtml(user.linkedinUrl.replace(/^https?:\/\//, '')) : 'Not set'}</a>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:8px; color:var(--c-sand);">
+                    <span>💬 Discord:</span>
+                    <span style="color:var(--c-cream);">${escapeHtml(user.discordTag || 'Not set')}</span>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:8px; color:var(--c-sand);">
+                    <span>🐦 Twitter / X:</span>
+                    <a href="${user.twitterUrl || '#'}" target="_blank" style="color:var(--c-sand); text-decoration:underline;">${user.twitterUrl ? escapeHtml(user.twitterUrl.replace(/^https?:\/\//, '')) : 'Not set'}</a>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:8px; color:var(--c-sand);">
+                    <span>🌐 Portfolio:</span>
+                    <a href="${user.portfolioUrl || '#'}" target="_blank" style="color:var(--c-sand); text-decoration:underline;">${user.portfolioUrl ? escapeHtml(user.portfolioUrl.replace(/^https?:\/\//, '')) : 'Not set'}</a>
                   </div>
                   <div style="display:flex; align-items:center; gap:8px; color:var(--c-sand);">
                     <span>🗓️ Member Since:</span>
@@ -2674,42 +3060,110 @@
         `;
       } else if (tab === 'edit') {
         content.innerHTML = `
-          <div class="glass-card" style="max-width:680px; margin:0 auto; display:flex; flex-direction:column; gap:20px;">
-            <h3 style="font-size:1.2rem; font-weight:700;">Edit Profile Settings</h3>
-            <form onsubmit="handleSaveProfileSettings(event)" style="display:flex; flex-direction:column; gap:16px;">
-              <div>
-                <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Display Name</label>
-                <input id="edit-name" value="${escapeHtml(user.name || '')}" required />
+          <div class="glass-card" style="max-width:760px; margin:0 auto; display:flex; flex-direction:column; gap:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <h3 style="font-size:1.2rem; font-weight:700;">Edit Profile, PFP & Dashboard</h3>
+              <span class="badge badge-indigo">Custom Styling</span>
+            </div>
+
+            <form onsubmit="handleSaveProfileSettings(event)" style="display:flex; flex-direction:column; gap:18px;">
+              
+              <!-- 1. Profile Picture (PFP) Customization -->
+              <div style="background:var(--c-charcoal-dark); border:1px solid rgba(221,213,205,0.2); border-radius:10px; padding:16px; display:flex; flex-direction:column; gap:12px;">
+                <label class="text-xs font-bold text-muted" style="text-transform:uppercase;">1. Profile Picture (PFP)</label>
+                <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
+                  <img id="edit-pfp-preview" src="${user.picture || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(user.name)}`}" style="width:64px; height:64px; border-radius:18px; object-fit:cover; border:2px solid var(--c-burgundy);" />
+                  <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
+                    <input type="file" id="edit-pfp-file" accept="image/*" onchange="handlePfpUpload(event)" style="display:none;" />
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                      <button type="button" onclick="document.getElementById('edit-pfp-file').click()" class="btn btn-secondary btn-sm">📁 Upload Custom Image</button>
+                      <button type="button" onclick="setAvatarPreset('bottts')" class="btn btn-secondary btn-sm">🤖 Bot</button>
+                      <button type="button" onclick="setAvatarPreset('avataaars')" class="btn btn-secondary btn-sm">🧑‍💻 Hacker</button>
+                      <button type="button" onclick="setAvatarPreset('shapes')" class="btn btn-secondary btn-sm">🎨 Abstract</button>
+                    </div>
+                    <input id="edit-picture" value="${escapeHtml(user.picture || '')}" placeholder="Or paste image URL (https://...)" style="font-size:11px;" />
+                  </div>
+                </div>
               </div>
-              <div>
-                <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Headline / Professional Title</label>
-                <input id="edit-headline" value="${escapeHtml(user.headline || '')}" placeholder="e.g. AI Researcher & Full-Stack Developer" />
+
+              <!-- 2. Dashboard Background (Cover Theme) -->
+              <div style="background:var(--c-charcoal-dark); border:1px solid rgba(221,213,205,0.2); border-radius:10px; padding:16px; display:flex; flex-direction:column; gap:12px;">
+                <label class="text-xs font-bold text-muted" style="text-transform:uppercase;">2. Dashboard Cover Background</label>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                  <input type="file" id="edit-cover-file" accept="image/*" onchange="handleCoverUpload(event)" style="display:none;" />
+                  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button type="button" onclick="document.getElementById('edit-cover-file').click()" class="btn btn-secondary btn-sm">📁 Upload Custom Banner</button>
+                    <button type="button" onclick="setCoverTheme('linear-gradient(135deg, #2E2E2E 0%, #3e282b 40%, #7D4047 100%)')" class="btn btn-secondary btn-sm" style="background:linear-gradient(135deg, #2E2E2E, #7D4047);">Burgundy Velvet</button>
+                    <button type="button" onclick="setCoverTheme('linear-gradient(135deg, #18181b 0%, #7f1d1d 100%)')" class="btn btn-secondary btn-sm" style="background:linear-gradient(135deg, #18181b, #7f1d1d);">Obsidian Crimson</button>
+                    <button type="button" onclick="setCoverTheme('linear-gradient(135deg, #2E2E2E 0%, #44403c 50%, #7D4047 100%)')" class="btn btn-secondary btn-sm" style="background:linear-gradient(135deg, #2E2E2E, #44403c);">Sand Dusk</button>
+                  </div>
+                  <input id="edit-cover-bg" value="${escapeHtml(user.coverBg || '')}" placeholder="Or paste background CSS / image URL (e.g. url('https://...'))" style="font-size:11px;" />
+                </div>
               </div>
-              <div>
-                <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">School / Institution / College</label>
-                <input id="edit-school" value="${escapeHtml(user.school || '')}" placeholder="e.g. Dayananda Sagar College of Engineering" />
-              </div>
-              <div>
-                <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Bio / Background</label>
-                <textarea id="edit-bio" rows="4" placeholder="Tell collaborators about your interests and experience...">${escapeHtml(user.bio || '')}</textarea>
-              </div>
-              <div>
-                <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Skills (comma-separated)</label>
-                <input id="edit-skills" value="${escapeHtml((user.skills || []).join(', '))}" placeholder="React, Node.js, Python, ROS, PyTorch" />
-              </div>
+
+              <!-- 3. Identity & About -->
               <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
                 <div>
-                  <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">GitHub Profile URL</label>
-                  <input id="edit-github" value="${escapeHtml(user.githubUrl || '')}" placeholder="https://github.com/username" />
+                  <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Display Name *</label>
+                  <input id="edit-name" value="${escapeHtml(user.name || '')}" required />
                 </div>
                 <div>
-                  <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Portfolio / Website URL</label>
+                  <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Headline / Title</label>
+                  <input id="edit-headline" value="${escapeHtml(user.headline || '')}" placeholder="e.g. AI Researcher & Full-Stack Hacker" />
+                </div>
+              </div>
+
+              <div>
+                <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">School / College / Organization</label>
+                <input id="edit-school" value="${escapeHtml(user.school || '')}" placeholder="e.g. Dayananda Sagar College of Engineering" />
+              </div>
+
+              <div>
+                <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">About / Background Bio</label>
+                <textarea id="edit-bio" rows="3" placeholder="Tell collaborators about your interests, past projects, and goals...">${escapeHtml(user.bio || '')}</textarea>
+              </div>
+
+              <!-- 4. Skills & Interests -->
+              <div>
+                <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Skills & Technologies (comma-separated)</label>
+                <input id="edit-skills" value="${escapeHtml((user.skills || []).join(', '))}" placeholder="React, Node.js, Python, ROS2, PyTorch, Embedded C, Figma" />
+              </div>
+
+              <div>
+                <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Interests & Focus Areas (comma-separated)</label>
+                <input id="edit-interests" value="${escapeHtml((user.interests || []).join(', '))}" placeholder="Autonomous Vehicles, Hackathons, Web3, SpaceTech, Computer Vision" />
+              </div>
+
+              <!-- 5. Connected Channels & Links -->
+              <div style="background:var(--c-charcoal-dark); border:1px solid rgba(221,213,205,0.2); border-radius:10px; padding:16px; display:flex; flex-direction:column; gap:12px;">
+                <label class="text-xs font-bold text-muted" style="text-transform:uppercase;">Connected Channels & Profiles</label>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                  <div>
+                    <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">🐙 GitHub Profile URL</label>
+                    <input id="edit-github" value="${escapeHtml(user.githubUrl || '')}" placeholder="https://github.com/yourhandle" />
+                  </div>
+                  <div>
+                    <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">💼 LinkedIn URL</label>
+                    <input id="edit-linkedin" value="${escapeHtml(user.linkedinUrl || '')}" placeholder="https://linkedin.com/in/yourhandle" />
+                  </div>
+                  <div>
+                    <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">💬 Discord / Telegram Tag</label>
+                    <input id="edit-discord" value="${escapeHtml(user.discordTag || '')}" placeholder="@username or user#1234" />
+                  </div>
+                  <div>
+                    <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">🐦 Twitter / X Profile URL</label>
+                    <input id="edit-twitter" value="${escapeHtml(user.twitterUrl || '')}" placeholder="https://x.com/yourhandle" />
+                  </div>
+                </div>
+                <div>
+                  <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">🌐 Personal Portfolio / Website URL</label>
                   <input id="edit-portfolio" value="${escapeHtml(user.portfolioUrl || '')}" placeholder="https://yourportfolio.dev" />
                 </div>
               </div>
+
               <div style="display:flex; gap:12px; margin-top:8px;">
                 <button type="button" onclick="switchProfileTab('overview')" class="btn btn-secondary">Cancel</button>
-                <button type="submit" class="btn btn-primary" style="flex:1;">Save & Sync Changes</button>
+                <button type="submit" class="btn btn-primary" style="flex:1;">💾 Save & Sync Profile Changes</button>
               </div>
             </form>
           </div>
@@ -2717,36 +3171,72 @@
       }
     }
 
+    function setAvatarPreset(style) {
+      if (!currentUser) return;
+      const seed = encodeURIComponent(currentUser.name || 'builder');
+      const url = `https://api.dicebear.com/7.x/${style}/svg?seed=${seed}`;
+      const input = document.getElementById('edit-picture');
+      const preview = document.getElementById('edit-pfp-preview');
+      if (input) input.value = url;
+      if (preview) preview.src = url;
+      showToast("Avatar preset selected!");
+    }
+
+    function setCoverTheme(gradient) {
+      const input = document.getElementById('edit-cover-bg');
+      if (input) input.value = gradient;
+      showToast("Cover theme selected!");
+    }
+
     async function handleSaveProfileSettings(e) {
       e.preventDefault();
       if (!currentUser) return;
 
-      const name = document.getElementById('edit-name').value.trim();
-      const headline = document.getElementById('edit-headline').value.trim();
-      const school = document.getElementById('edit-school').value.trim();
-      const bio = document.getElementById('edit-bio').value.trim();
+      const name = censorProfanity(document.getElementById('edit-name').value.trim());
+      const headline = censorProfanity(document.getElementById('edit-headline').value.trim());
+      const school = censorProfanity(document.getElementById('edit-school').value.trim());
+      const bio = censorProfanity(document.getElementById('edit-bio').value.trim());
+      const picture = document.getElementById('edit-picture').value.trim();
+      const coverBg = document.getElementById('edit-cover-bg').value.trim();
+
       const skillsRaw = document.getElementById('edit-skills').value.trim();
+      const interestsRaw = document.getElementById('edit-interests').value.trim();
+
       const githubUrl = document.getElementById('edit-github').value.trim();
+      const linkedinUrl = document.getElementById('edit-linkedin').value.trim();
+      const discordTag = document.getElementById('edit-discord').value.trim();
+      const twitterUrl = document.getElementById('edit-twitter').value.trim();
       const portfolioUrl = document.getElementById('edit-portfolio').value.trim();
 
-      const skills = skillsRaw ? skillsRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+      const skills = skillsRaw ? skillsRaw.split(',').map(s => censorProfanity(s.trim())).filter(Boolean) : [];
+      const interests = interestsRaw ? interestsRaw.split(',').map(i => censorProfanity(i.trim())).filter(Boolean) : [];
 
       currentUser.name = name;
       currentUser.headline = headline;
       currentUser.school = school;
       currentUser.bio = bio;
+      currentUser.picture = picture || currentUser.picture;
+      currentUser.coverBg = coverBg || currentUser.coverBg;
       currentUser.skills = skills;
+      currentUser.interests = interests;
       currentUser.githubUrl = githubUrl;
+      currentUser.linkedinUrl = linkedinUrl;
+      currentUser.discordTag = discordTag;
+      currentUser.twitterUrl = twitterUrl;
       currentUser.portfolioUrl = portfolioUrl;
 
       const u = store.users.find(x => x.id === currentUser.id);
       if (u) {
-        Object.assign(u, { name, headline, school, bio, skills, githubUrl, portfolioUrl });
+        Object.assign(u, {
+          name, headline, school, bio, picture: currentUser.picture,
+          coverBg: currentUser.coverBg, skills, interests,
+          githubUrl, linkedinUrl, discordTag, twitterUrl, portfolioUrl
+        });
       }
 
       await saveState();
       renderNavAuth();
-      showToast('Profile updated & synced live!');
+      showToast('Profile, PFP, Cover & Channels saved live!');
       renderProfileView(currentUser.id);
     }
 
