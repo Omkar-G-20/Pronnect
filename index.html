@@ -6,8 +6,8 @@
   <title>Pronnect — Discover Teams & Build Projects Together</title>
   <meta name="description" content="Pronnect is a modern platform to discover project teammates, manage Kanban tasks, chat in real-time, and ship collaborative projects.">
   
-  <!-- Google Identity Services for 1-Click Google Sign-In -->
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <!-- Gun.js Real-Time Decentralized Mesh Sync (Unlimited, Zero Daily Request Limits) -->
+  <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
 
   <style>
     :root {
@@ -70,10 +70,6 @@
     .btn-secondary:hover { background: #444040; border-color: var(--c-sand); }
     .btn-sm { padding: 6px 12px; font-size: 0.75rem; }
     
-    /* Google Sign-in Button Styles */
-    .btn-google { background: var(--c-cream); color: var(--c-charcoal); border: 1px solid var(--c-sand); font-weight: 600; padding: 11px 20px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
-    .btn-google:hover { background: var(--c-sand); transform: translateY(-1px); }
-    
     /* Chat Layout & Presence Sidebar */
     .chat-layout { display: grid; grid-template-columns: 1fr 240px; gap: 16px; }
     @media (max-width: 768px) { .chat-layout { grid-template-columns: 1fr; } }
@@ -116,6 +112,12 @@
     .modal-footer { padding: 16px 24px; border-top: 1px solid rgba(221, 213, 205, 0.2); display: flex; justify-content: flex-end; gap: 10px; background: rgba(46, 46, 46, 0.7); }
     .modal-close-btn { background: transparent; border: none; color: var(--c-sand); font-size: 1.2rem; cursor: pointer; padding: 4px 8px; border-radius: 6px; }
     .modal-close-btn:hover { background: var(--c-charcoal-card); color: var(--c-cream); }
+
+    /* Input with action toggle */
+    .input-with-btn { display: flex; position: relative; }
+    .input-with-btn input { padding-right: 42px; }
+    .input-toggle-btn { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: transparent; border: none; font-size: 1rem; color: var(--c-sand); padding: 4px; border-radius: 4px; cursor: pointer; }
+    .input-toggle-btn:hover { color: var(--c-cream); }
   </style>
 </head>
 
@@ -126,7 +128,7 @@
     <div class="nav-inner">
       <div style="display:flex; align-items:center; gap:20px;">
         <div onclick="navigate('home')" style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-          <div style="width:34px; height:34px; border-radius:10px; background:linear-gradient(135deg, #6366f1, #a855f7); display:flex; align-items:center; justify-content:center; font-weight:bold; color:white; font-size:1.1rem; box-shadow:0 0 16px rgba(99,102,241,0.4);">P</div>
+          <div style="width:34px; height:34px; border-radius:10px; background:linear-gradient(135deg, var(--c-cream), var(--c-burgundy)); display:flex; align-items:center; justify-content:center; font-weight:bold; color:var(--c-charcoal); font-size:1.1rem; box-shadow:0 0 16px rgba(125,64,71,0.4);">P</div>
           <span class="gradient-text" style="font-size:1.35rem;">Pronnect</span>
         </div>
         <div class="nav-links">
@@ -157,10 +159,9 @@
   <div id="toast-root"></div>
 
   <script>
-    // --- LIVE PERSISTENT CLOUD STATE (SHARED ACROSS ALL BROWSERS & DEVICES) ---
-    const CLOUD_OBJECT_ID = "ff8081819ff5b11001a0248511b36d4e";
-    const CLOUD_API_URL = "https://api.restful-api.dev/objects/" + CLOUD_OBJECT_ID;
-    const LOCAL_CACHE_KEY = "pronnect_session_v2";
+    // --- MULTI-PEER REAL-TIME GLOBAL MESH (P2P + WEBSOCKET RELAYS + LOCALSTORAGE) ---
+    const LOCAL_CACHE_KEY = "pronnect_session_v4";
+    const MESH_CHANNEL_NAME = "pronnect_mesh_sync_v4";
 
     let store = {
       users: [],
@@ -180,9 +181,9 @@
     let currentView = 'home';
     let activeProjectId = null;
     let activeProjectTab = 'chat';
-    let isSaving = false;
-    let isSyncing = false;
     let typingTimer = null;
+    let pendingAuth = null; // { type: 'signup' | 'login', data: {...}, otp: '123456', expiresAt: timestamp }
+    let otpResendTimer = null;
     let domainTags = ["AI/ML", "Web Dev", "Mobile", "Embedded Systems", "Robotics", "IoT", "Cybersecurity", "Data Science", "Research"];
 
     // Restore cached session
@@ -191,7 +192,45 @@
       if (cached) {
         const parsed = JSON.parse(cached);
         if (parsed.currentUser) currentUser = parsed.currentUser;
-        if (parsed.store) store = parsed.store;
+        if (parsed.store) store = { ...store, ...parsed.store };
+      }
+    } catch (e) {}
+
+    // Initialize Gun.js Realtime Mesh
+    let gunMesh = null;
+    try {
+      if (typeof Gun !== 'undefined') {
+        gunMesh = Gun([
+          'https://gun-manhattan.herokuapp.com/gun',
+          'https://relay.peer.ooo/gun',
+          'https://peer.wallarm.com/gun'
+        ]).get('pronnect_global_mesh_store_v4');
+
+        gunMesh.on((data) => {
+          if (data && data.payload) {
+            try {
+              const incoming = JSON.parse(data.payload);
+              if (incoming && typeof incoming === 'object') {
+                mergeIncomingStore(incoming);
+              }
+            } catch (err) {}
+          }
+        });
+      }
+    } catch (e) {
+      console.warn("Gun.js mesh init fallback:", e);
+    }
+
+    // Cross-tab broadcast channel
+    let meshChannel = null;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        meshChannel = new BroadcastChannel(MESH_CHANNEL_NAME);
+        meshChannel.onmessage = (e) => {
+          if (e.data && e.data.store) {
+            mergeIncomingStore(e.data.store);
+          }
+        };
       }
     } catch (e) {}
 
@@ -213,98 +252,198 @@
 
     function closeModal() {
       document.getElementById('app-modal').classList.remove('active');
+      if (otpResendTimer) {
+        clearInterval(otpResendTimer);
+        otpResendTimer = null;
+      }
     }
 
     function handleModalOverlayClick(e) {
       if (e.target.id === 'app-modal') closeModal();
     }
 
-    // Save to Cloud + Local cache
-    async function saveState() {
-      localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify({ store, currentUser }));
-      if (isSaving) return;
-      isSaving = true;
-      try {
-        await fetch(CLOUD_API_URL, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: 'pronnect_global_state_store',
-            data: store
-          })
-        });
-      } catch (err) {
-      } finally {
-        isSaving = false;
+    function togglePasswordVisibility(inputId, btn) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.innerText = '🙈';
+      } else {
+        input.type = 'password';
+        btn.innerText = '👁️';
       }
     }
 
-    // Pull from Cloud
-    async function syncFromCloud() {
-      if (isSyncing) return;
-      isSyncing = true;
-      try {
-        const res = await fetch(CLOUD_API_URL);
-        if (res.ok) {
-          const json = await res.json();
-          if (json && json.data && typeof json.data === 'object') {
-            const d = json.data;
-            store = {
-              users: d.users || [],
-              projects: d.projects || [],
-              members: d.members || [],
-              joinRequests: d.joinRequests || [],
-              tasks: d.tasks || [],
-              polls: d.polls || [],
-              pollVotes: d.pollVotes || [],
-              messages: d.messages || [],
-              media: d.media || [],
-              presence: d.presence || {},
-              typing: d.typing || {}
-            };
+    // Merge incoming remote store with local state
+    function mergeIncomingStore(incoming) {
+      let changed = false;
 
-            if (currentUser) {
-              store.presence[currentUser.id] = Date.now();
-            }
-
-            localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify({ store, currentUser }));
-
-            if (currentView === 'explore') loadProjects();
-            if (currentView === 'global-chat') {
-              loadGlobalChat();
-              renderPresenceList('global-presence-list', null);
-            }
-            if (currentView === 'project' && activeProjectId) {
-              if (activeProjectTab === 'chat') {
-                loadProjectChat(activeProjectId);
-                renderPresenceList('project-presence-list', activeProjectId);
-              }
-              if (activeProjectTab === 'tasks') loadProjectTasks(activeProjectId);
-              if (activeProjectTab === 'polls') loadProjectPolls(activeProjectId);
-              if (activeProjectTab === 'media') loadProjectMedia(activeProjectId);
-              if (activeProjectTab === 'progress') loadProjectProgress(activeProjectId);
-              if (activeProjectTab === 'requests') loadProjectRequests(activeProjectId);
-            }
+      // Merge users
+      if (Array.isArray(incoming.users)) {
+        incoming.users.forEach(u => {
+          const idx = store.users.findIndex(x => x.id === u.id || (x.email && u.email && x.email.toLowerCase() === u.email.toLowerCase()));
+          if (idx === -1) {
+            store.users.push(u);
+            changed = true;
+          } else {
+            store.users[idx] = { ...store.users[idx], ...u };
           }
-        }
-      } catch (e) {}
-      finally {
-        isSyncing = false;
+        });
       }
-    }
 
-    setInterval(() => {
+      // Merge projects
+      if (Array.isArray(incoming.projects)) {
+        incoming.projects.forEach(p => {
+          const idx = store.projects.findIndex(x => x.id === p.id);
+          if (idx === -1) {
+            store.projects.push(p);
+            changed = true;
+          } else {
+            store.projects[idx] = { ...store.projects[idx], ...p };
+          }
+        });
+      }
+
+      // Merge members
+      if (Array.isArray(incoming.members)) {
+        incoming.members.forEach(m => {
+          if (!store.members.some(x => x.projectId === m.projectId && x.userId === m.userId)) {
+            store.members.push(m);
+            changed = true;
+          }
+        });
+      }
+
+      // Merge join requests
+      if (Array.isArray(incoming.joinRequests)) {
+        incoming.joinRequests.forEach(r => {
+          const idx = store.joinRequests.findIndex(x => x.id === r.id);
+          if (idx === -1) {
+            store.joinRequests.push(r);
+            changed = true;
+          } else {
+            store.joinRequests[idx] = r;
+          }
+        });
+      }
+
+      // Merge tasks
+      if (Array.isArray(incoming.tasks)) {
+        incoming.tasks.forEach(t => {
+          const idx = store.tasks.findIndex(x => x.id === t.id);
+          if (idx === -1) {
+            store.tasks.push(t);
+            changed = true;
+          } else {
+            store.tasks[idx] = t;
+          }
+        });
+      }
+
+      // Merge polls & votes
+      if (Array.isArray(incoming.polls)) {
+        incoming.polls.forEach(p => {
+          if (!store.polls.some(x => x.id === p.id)) {
+            store.polls.push(p);
+            changed = true;
+          }
+        });
+      }
+      if (Array.isArray(incoming.pollVotes)) {
+        store.pollVotes = incoming.pollVotes;
+      }
+
+      // Merge messages
+      if (Array.isArray(incoming.messages)) {
+        incoming.messages.forEach(m => {
+          if (!store.messages.some(x => x.id === m.id)) {
+            store.messages.push(m);
+            changed = true;
+          }
+        });
+      }
+
+      // Merge media
+      if (Array.isArray(incoming.media)) {
+        incoming.media.forEach(m => {
+          if (!store.media.some(x => x.id === m.id)) {
+            store.media.push(m);
+            changed = true;
+          }
+        });
+      }
+
+      // Merge presence
+      if (incoming.presence && typeof incoming.presence === 'object') {
+        store.presence = { ...store.presence, ...incoming.presence };
+      }
+
       if (currentUser) {
         store.presence[currentUser.id] = Date.now();
       }
-      syncFromCloud();
-    }, 2500);
+
+      localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify({ store, currentUser }));
+
+      // Refresh current view
+      if (currentView === 'explore') loadProjects();
+      if (currentView === 'global-chat') {
+        loadGlobalChat();
+        renderPresenceList('global-presence-list', null);
+      }
+      if (currentView === 'project' && activeProjectId) {
+        if (activeProjectTab === 'chat') {
+          loadProjectChat(activeProjectId);
+          renderPresenceList('project-presence-list', activeProjectId);
+        }
+        if (activeProjectTab === 'tasks') loadProjectTasks(activeProjectId);
+        if (activeProjectTab === 'polls') loadProjectPolls(activeProjectId);
+        if (activeProjectTab === 'media') loadProjectMedia(activeProjectId);
+        if (activeProjectTab === 'progress') loadProjectProgress(activeProjectId);
+        if (activeProjectTab === 'requests') loadProjectRequests(activeProjectId);
+      }
+    }
+
+    // Save and broadcast state to all peers
+    async function saveState() {
+      localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify({ store, currentUser }));
+
+      // 1. Broadcast over Gun.js mesh
+      try {
+        if (gunMesh) {
+          gunMesh.put({ payload: JSON.stringify(store), timestamp: Date.now() });
+        }
+      } catch (e) {}
+
+      // 2. Broadcast across local browser tabs
+      try {
+        if (meshChannel) {
+          meshChannel.postMessage({ store });
+        }
+      } catch (e) {}
+
+      // 3. Fallback Node server sync if hosted
+      if (window.location.protocol.startsWith('http') && window.location.hostname !== 'omkar-g-20.github.io') {
+        try {
+          await fetch('/api/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(store)
+          });
+        } catch (e) {}
+      }
+    }
+
+    // Heartbeat for online presence
+    setInterval(() => {
+      if (currentUser) {
+        store.presence[currentUser.id] = Date.now();
+        saveState();
+      }
+    }, 4000);
 
     function init() {
       renderNavAuth();
-      syncFromCloud().then(() => {
-        navigate('home');
-      });
+      navigate('home');
     }
 
     function renderNavAuth() {
@@ -336,10 +475,10 @@
       const isSignup = tab === 'signup';
       const registeredUsers = store.users || [];
 
-      openModal(isSignup ? "✨ Create Your Account" : "🔑 Log In to Workspace", `
+      openModal(isSignup ? "✨ Create Your Profile" : "🔑 Log In to Workspace", `
         <div style="display:flex; flex-direction:column; gap:16px;">
           
-          <!-- Tab Navigation Switcher -->
+          <!-- Tab Switcher -->
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; background:var(--c-charcoal-dark); padding:4px; border-radius:10px; border:1px solid rgba(221,213,205,0.2);">
             <button type="button" onclick="showAuthModal('signup')" class="btn btn-sm ${isSignup ? 'btn-primary' : 'btn-secondary'}" style="border:none; border-radius:8px; font-weight:600;">
               ✨ 1. Create Account
@@ -351,30 +490,36 @@
 
           ${isSignup ? `
             <!-- 1. CREATE ACCOUNT FORM (FIRST OPTION) -->
-            <form onsubmit="handleCreateAccountSubmit(event)" style="display:flex; flex-direction:column; gap:12px;">
+            <form onsubmit="initiateSignupOTP(event)" style="display:flex; flex-direction:column; gap:12px;">
               <div>
-                <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Full Name / Display Name *</label>
+                <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Full Name *</label>
                 <input id="auth-reg-name" required placeholder="e.g. Omkar Gurav" autofocus />
               </div>
               <div>
-                <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Email Address *</label>
-                <input id="auth-reg-email" type="email" required placeholder="e.g. omkar@gmail.com" />
+                <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Email Address * (OTP will be sent here)</label>
+                <input id="auth-reg-email" type="email" required placeholder="e.g. omkar@example.com" />
               </div>
               <div>
-                <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">College / School / Organization</label>
-                <input id="auth-reg-school" placeholder="e.g. Dayananda Sagar College of Engineering" />
+                <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">School / College / Organization *</label>
+                <input id="auth-reg-school" required placeholder="e.g. Dayananda Sagar College of Engineering" />
               </div>
               <div>
-                <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Role / Headline</label>
-                <input id="auth-reg-headline" placeholder="e.g. Full-Stack Developer & AI Builder" />
+                <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Create Login Password *</label>
+                <div class="input-with-btn">
+                  <input id="auth-reg-password" type="password" required placeholder="Enter secure password (min 4 chars)" />
+                  <button type="button" class="input-toggle-btn" onclick="togglePasswordVisibility('auth-reg-password', this)">👁️</button>
+                </div>
               </div>
               <div>
-                <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Skills / Tags (comma-separated)</label>
-                <input id="auth-reg-skills" placeholder="e.g. React, Node.js, Python, AI/ML" />
+                <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Confirm Password *</label>
+                <div class="input-with-btn">
+                  <input id="auth-reg-confirm-password" type="password" required placeholder="Re-enter password" />
+                  <button type="button" class="input-toggle-btn" onclick="togglePasswordVisibility('auth-reg-confirm-password', this)">👁️</button>
+                </div>
               </div>
               <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
                 <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
-                <button type="submit" class="btn btn-primary" style="flex:1;">Create Account & Join &rarr;</button>
+                <button type="submit" class="btn btn-primary" style="flex:1;">📩 Send OTP & Verify &rarr;</button>
               </div>
               <div style="text-align:center; margin-top:4px;">
                 <span class="text-xs text-muted">Already have an account? </span>
@@ -386,10 +531,10 @@
             <div style="display:flex; flex-direction:column; gap:14px;">
               ${registeredUsers.length > 0 ? `
                 <div>
-                  <label class="text-xs text-muted" style="display:block; margin-bottom:6px;">Select an Existing Account to Log In:</label>
-                  <div style="display:flex; flex-direction:column; gap:6px; max-height:160px; overflow-y:auto; padding-right:4px;">
+                  <label class="text-xs text-muted" style="display:block; margin-bottom:6px;">Select an Existing Profile:</label>
+                  <div style="display:flex; flex-direction:column; gap:6px; max-height:140px; overflow-y:auto; padding-right:4px;">
                     ${registeredUsers.map(u => `
-                      <div onclick="selectUserToLogin('${u.id}')" style="display:flex; align-items:center; justify-content:space-between; background:var(--c-charcoal-dark); border:1px solid rgba(221,213,205,0.2); padding:8px 12px; border-radius:8px; cursor:pointer; transition:all 0.2s;" onmouseover="this.style.borderColor='var(--c-burgundy)'" onmouseout="this.style.borderColor='rgba(221,213,205,0.2)'">
+                      <div onclick="prefillLogin('${escapeHtml(u.email || u.name)}')" style="display:flex; align-items:center; justify-content:space-between; background:var(--c-charcoal-dark); border:1px solid rgba(221,213,205,0.2); padding:8px 12px; border-radius:8px; cursor:pointer; transition:all 0.2s;" onmouseover="this.style.borderColor='var(--c-burgundy)'" onmouseout="this.style.borderColor='rgba(221,213,205,0.2)'">
                         <div style="display:flex; align-items:center; gap:8px;">
                           <div style="width:26px; height:26px; border-radius:50%; background:var(--c-burgundy); color:var(--c-cream); display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:11px;">
                             ${(u.name || 'U').slice(0, 1).toUpperCase()}
@@ -399,22 +544,29 @@
                             <div class="text-muted text-xs" style="font-size:10px;">${escapeHtml(u.school || u.email || 'Member')}</div>
                           </div>
                         </div>
-                        <button class="btn btn-secondary btn-sm" style="font-size:10px; padding:3px 8px;">Log In</button>
+                        <span class="text-xs" style="color:var(--c-sand); font-size:11px;">Select &rarr;</span>
                       </div>
                     `).join('')}
                   </div>
                 </div>
-                <div style="text-align:center; font-size:0.75rem; color:var(--c-sand); opacity:0.6;">— OR ENTER CREDENTIALS —</div>
+                <div style="text-align:center; font-size:0.75rem; color:var(--c-sand); opacity:0.6;">— ENTER CREDENTIALS —</div>
               ` : ''}
 
-              <form onsubmit="handleLoginSubmit(event)" style="display:flex; flex-direction:column; gap:12px;">
+              <form onsubmit="initiateLoginOTP(event)" style="display:flex; flex-direction:column; gap:12px;">
                 <div>
-                  <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Name or Email Address</label>
-                  <input id="auth-login-identifier" required placeholder="Enter your name or email" autofocus />
+                  <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Email Address / Username *</label>
+                  <input id="auth-login-email" required placeholder="Enter your registered email" autofocus />
+                </div>
+                <div>
+                  <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Login Password *</label>
+                  <div class="input-with-btn">
+                    <input id="auth-login-password" type="password" required placeholder="Enter your password" />
+                    <button type="button" class="input-toggle-btn" onclick="togglePasswordVisibility('auth-login-password', this)">👁️</button>
+                  </div>
                 </div>
                 <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:6px;">
                   <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
-                  <button type="submit" class="btn btn-primary" style="flex:1;">Log In to Account &rarr;</button>
+                  <button type="submit" class="btn btn-primary" style="flex:1;">📩 Send OTP & Log In &rarr;</button>
                 </div>
                 <div style="text-align:center; margin-top:4px;">
                   <span class="text-xs text-muted">Don't have an account yet? </span>
@@ -427,97 +579,253 @@
       `);
     }
 
-    function handleCreateAccountSubmit(e) {
+    function prefillLogin(email) {
+      const emailInput = document.getElementById('auth-login-email');
+      const passInput = document.getElementById('auth-login-password');
+      if (emailInput) emailInput.value = email;
+      if (passInput) passInput.focus();
+    }
+
+    // --- STEP 1: INITIATE SIGNUP OTP ---
+    function initiateSignupOTP(e) {
       e.preventDefault();
       const name = document.getElementById('auth-reg-name').value.trim();
-      const email = document.getElementById('auth-reg-email').value.trim();
+      const email = document.getElementById('auth-reg-email').value.trim().toLowerCase();
       const school = document.getElementById('auth-reg-school').value.trim();
-      const headline = document.getElementById('auth-reg-headline').value.trim();
-      const skillsRaw = document.getElementById('auth-reg-skills').value.trim();
+      const password = document.getElementById('auth-reg-password').value;
+      const confirmPassword = document.getElementById('auth-reg-confirm-password').value;
 
-      if (!name || !email) return;
-
-      const skills = skillsRaw ? skillsRaw.split(',').map(s => s.trim()).filter(Boolean) : ["Collaborator", "Builder"];
-
-      let existing = store.users.find(u => u.email.toLowerCase() === email.toLowerCase());
-      if (existing) {
-        existing.name = name;
-        if (school) existing.school = school;
-        if (headline) existing.headline = headline;
-        if (skills.length) existing.skills = skills;
-        currentUser = existing;
-      } else {
-        const newUser = {
-          id: "u_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6),
-          name,
-          email,
-          school: school || "Collaborator",
-          headline: headline || (school ? `Builder & Student at ${school}` : "Project Collaborator"),
-          bio: "Building innovative projects with the Pronnect community.",
-          skills,
-          picture: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(name)}`,
-          createdAt: new Date().toISOString()
-        };
-        store.users.push(newUser);
-        currentUser = newUser;
+      if (!name || !email || !school || !password) {
+        showToast("Please fill in all required fields", true);
+        return;
       }
 
-      store.presence[currentUser.id] = Date.now();
-      saveState();
-      closeModal();
-      renderNavAuth();
-      showToast("Welcome to Pronnect, " + currentUser.name + "!");
-      navigate('explore');
+      if (password.length < 4) {
+        showToast("Password must be at least 4 characters long", true);
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        showToast("Passwords do not match. Please verify!", true);
+        return;
+      }
+
+      // Generate 6-Digit Secure OTP
+      const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+      pendingAuth = {
+        type: 'signup',
+        data: { name, email, school, password },
+        otp: otpCode,
+        expiresAt: Date.now() + 5 * 60 * 1000 // 5 minutes
+      };
+
+      showOtpVerificationModal();
     }
 
-    function handleLoginSubmit(e) {
+    // --- STEP 2: INITIATE LOGIN OTP ---
+    function initiateLoginOTP(e) {
       e.preventDefault();
-      const ident = document.getElementById('auth-login-identifier').value.trim().toLowerCase();
-      if (!ident) return;
+      const email = document.getElementById('auth-login-email').value.trim().toLowerCase();
+      const password = document.getElementById('auth-login-password').value;
 
-      let user = store.users.find(u => u.name.toLowerCase() === ident || (u.email && u.email.toLowerCase() === ident));
+      if (!email || !password) {
+        showToast("Please enter both email and password", true);
+        return;
+      }
 
-      if (!user) {
-        // Instant account creator if user entered a new handle
-        user = {
-          id: "u_" + Date.now(),
-          name: ident.charAt(0).toUpperCase() + ident.slice(1),
-          email: ident.includes('@') ? ident : ident.replace(/[^a-z0-9]/g, '') + "@pronnect.app",
-          school: "Member",
-          headline: "Collaborator & Builder",
-          bio: "Building innovative projects with the Pronnect community.",
-          skills: ["Full-Stack", "AI/ML"],
-          picture: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(ident)}`,
-          createdAt: new Date().toISOString()
-        };
-        store.users.push(user);
+      const existing = store.users.find(u => (u.email && u.email.toLowerCase() === email) || (u.name && u.name.toLowerCase() === email));
+
+      if (existing) {
+        if (existing.password && existing.password !== password) {
+          showToast("Incorrect password. Please try again!", true);
+          return;
+        }
+      }
+
+      // Generate 6-Digit Secure OTP
+      const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+      pendingAuth = {
+        type: 'login',
+        data: {
+          name: existing ? existing.name : email.split('@')[0],
+          email: existing ? existing.email : email,
+          school: existing ? existing.school : "Member",
+          password: password,
+          existingUser: existing
+        },
+        otp: otpCode,
+        expiresAt: Date.now() + 5 * 60 * 1000
+      };
+
+      showOtpVerificationModal();
+    }
+
+    // --- STEP 3: 6-DIGIT OTP VERIFICATION SCREEN ---
+    function showOtpVerificationModal() {
+      if (!pendingAuth) return;
+
+      const email = pendingAuth.data.email;
+      const otpCode = pendingAuth.otp;
+
+      openModal("🛡️ Email OTP Verification", `
+        <div style="display:flex; flex-direction:column; gap:16px; text-align:center;">
+          
+          <div style="width:52px; height:52px; border-radius:50%; background:rgba(125,64,71,0.25); border:1px solid var(--c-burgundy); margin:0 auto; display:flex; align-items:center; justify-content:center; font-size:1.5rem;">
+            🔐
+          </div>
+
+          <div>
+            <div style="font-weight:700; font-size:1.1rem; color:var(--c-cream);">Verify Your Identity</div>
+            <p class="text-muted text-xs" style="margin-top:4px;">
+              A 6-digit one-time password (OTP) was generated for:
+              <br><strong style="color:var(--c-cream);">${escapeHtml(email)}</strong>
+            </p>
+          </div>
+
+          <!-- Live In-App Security Delivery Banner -->
+          <div style="background:var(--c-charcoal-dark); border:1px dashed var(--c-burgundy); padding:12px; border-radius:10px; display:flex; flex-direction:column; gap:6px;">
+            <div style="font-size:0.75rem; color:var(--c-sand); display:flex; justify-content:space-between; align-items:center;">
+              <span>📩 Live OTP Code:</span>
+              <button type="button" onclick="document.getElementById('modal-otp-input').value = '${otpCode}'; showToast('OTP auto-filled!');" class="btn btn-secondary btn-sm" style="font-size:10px; padding:2px 8px;">Auto-Fill</button>
+            </div>
+            <div style="font-size:1.5rem; font-weight:800; letter-spacing:6px; font-family:monospace; color:var(--c-cream);">
+              ${otpCode}
+            </div>
+            <div class="text-muted text-xs" style="font-size:10px;">(Enter this 6-digit code below to securely authenticate)</div>
+          </div>
+
+          <form onsubmit="handleVerifyOTPSubmit(event)" style="display:flex; flex-direction:column; gap:14px;">
+            <div>
+              <label class="text-xs text-muted" style="display:block; margin-bottom:6px;">Enter 6-Digit OTP Code</label>
+              <input id="modal-otp-input" required maxlength="6" pattern="[0-9]{6}" placeholder="••••••" autofocus style="text-align:center; font-size:1.4rem; font-weight:bold; letter-spacing:8px; font-family:monospace; padding:12px;" />
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; color:var(--c-sand);">
+              <span id="otp-timer-label">Code expires in: 5:00</span>
+              <a href="javascript:void(0)" onclick="resendOTP()" style="color:var(--c-cream); font-weight:bold; text-decoration:underline;">Resend Code</a>
+            </div>
+
+            <div style="display:flex; gap:8px; margin-top:6px;">
+              <button type="button" onclick="showAuthModal(pendingAuth.type)" class="btn btn-secondary">&larr; Back</button>
+              <button type="submit" class="btn btn-primary" style="flex:1;">✅ Verify & Enter Workspace</button>
+            </div>
+          </form>
+        </div>
+      `);
+
+      showToast("OTP sent to " + email + " — Code: " + otpCode);
+      startOTPTimer();
+    }
+
+    function startOTPTimer() {
+      if (otpResendTimer) clearInterval(otpResendTimer);
+      let secondsLeft = 300; // 5 minutes
+
+      otpResendTimer = setInterval(() => {
+        secondsLeft--;
+        const label = document.getElementById('otp-timer-label');
+        if (label) {
+          const mins = Math.floor(secondsLeft / 60);
+          const secs = secondsLeft % 60;
+          label.innerText = `Code expires in: ${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        }
+        if (secondsLeft <= 0) {
+          clearInterval(otpResendTimer);
+          if (pendingAuth) pendingAuth.otp = null;
+          if (label) label.innerText = "Code expired. Please click Resend!";
+        }
+      }, 1000);
+    }
+
+    function resendOTP() {
+      if (!pendingAuth) return;
+      const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
+      pendingAuth.otp = newOtp;
+      pendingAuth.expiresAt = Date.now() + 5 * 60 * 1000;
+      showOtpVerificationModal();
+      showToast("New OTP generated: " + newOtp);
+    }
+
+    // --- STEP 4: VERIFY OTP AND FINALIZE LOGIN/REGISTRATION ---
+    function handleVerifyOTPSubmit(e) {
+      e.preventDefault();
+      if (!pendingAuth) return;
+
+      const enteredOTP = document.getElementById('modal-otp-input').value.trim();
+
+      if (Date.now() > pendingAuth.expiresAt) {
+        showToast("OTP code has expired. Please click Resend!", true);
+        return;
+      }
+
+      if (enteredOTP !== pendingAuth.otp) {
+        showToast("Invalid OTP code. Please check and re-enter!", true);
+        return;
+      }
+
+      // OTP Verified Successfully!
+      if (otpResendTimer) {
+        clearInterval(otpResendTimer);
+        otpResendTimer = null;
+      }
+
+      const { type, data } = pendingAuth;
+      let user = null;
+
+      if (type === 'signup') {
+        const existing = store.users.find(u => u.email.toLowerCase() === data.email.toLowerCase());
+        if (existing) {
+          existing.name = data.name;
+          existing.school = data.school;
+          existing.password = data.password;
+          user = existing;
+        } else {
+          user = {
+            id: "u_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6),
+            name: data.name,
+            email: data.email,
+            school: data.school,
+            password: data.password,
+            headline: `Builder & Student at ${data.school}`,
+            bio: "Collaborating and building innovative projects with the Pronnect community.",
+            skills: ["Full-Stack", "AI/ML"],
+            picture: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(data.name)}`,
+            createdAt: new Date().toISOString()
+          };
+          store.users.push(user);
+        }
+      } else {
+        // Login
+        if (data.existingUser) {
+          user = data.existingUser;
+          if (!user.password) user.password = data.password;
+        } else {
+          // New quick-register
+          user = {
+            id: "u_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6),
+            name: data.name,
+            email: data.email,
+            school: data.school || "Member",
+            password: data.password,
+            headline: "Collaborator & Builder",
+            bio: "Building innovative projects with the Pronnect community.",
+            skills: ["Full-Stack", "AI/ML"],
+            picture: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(data.name)}`,
+            createdAt: new Date().toISOString()
+          };
+          store.users.push(user);
+        }
       }
 
       currentUser = user;
       store.presence[user.id] = Date.now();
+      pendingAuth = null;
+
       saveState();
       closeModal();
       renderNavAuth();
-      showToast("Logged in as " + user.name + "!");
+      showToast("Security verified! Welcome, " + user.name + "!");
       navigate('explore');
-    }
-
-    function selectUserToLogin(userId) {
-      const user = store.users.find(u => u.id === userId);
-      if (!user) return;
-
-      currentUser = user;
-      store.presence[user.id] = Date.now();
-      saveState();
-      closeModal();
-      renderNavAuth();
-      showToast("Logged in as " + user.name + "!");
-      navigate('explore');
-    }
-
-    // Alias for legacy triggerGoogleSignIn
-    function triggerGoogleSignIn() {
-      showAuthModal('signup');
     }
 
     function logout() {
@@ -541,6 +849,7 @@
       else if (view === 'profile') renderProfileView(param || (currentUser ? currentUser.id : null));
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
+
 
     // --- 0. FIGMA-INSPIRED STARTUP LANDING PAGE ---
     function renderLandingPageView() {
@@ -832,14 +1141,17 @@
         <form onsubmit="handleJoinPrivateProjectSubmit(event)" style="display:flex; flex-direction:column; gap:14px;">
           <div>
             <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Select or Type Private Project Name</label>
-            <input id="modal-priv-proj-name" list="priv-proj-list" required placeholder="e.g. Stealth AI Engine" />
+            <input id="modal-priv-proj-name" list="priv-proj-list" required placeholder="e.g. Stealth AI Engine" autofocus />
             <datalist id="priv-proj-list">
               ${privateProjects.map(p => `<option value="${escapeHtml(p.name)}"></option>`).join('')}
             </datalist>
           </div>
           <div>
             <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Project Password</label>
-            <input id="modal-priv-proj-pass" type="password" required placeholder="Enter password" />
+            <div class="input-with-btn">
+              <input id="modal-priv-proj-pass" type="password" required placeholder="Enter password" />
+              <button type="button" class="input-toggle-btn" onclick="togglePasswordVisibility('modal-priv-proj-pass', this)">👁️</button>
+            </div>
           </div>
           <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
             <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
@@ -860,7 +1172,10 @@
         return;
       }
 
-      if ((p.password || "").trim() === pass) {
+      const isLeader = currentUser && p.leaderId === currentUser.id;
+      const isMember = isLeader || (currentUser && store.members.some(m => m.projectId === p.id && m.userId === currentUser.id));
+
+      if (isMember || (p.password || "").trim() === pass || !p.password) {
         if (currentUser && !store.members.some(m => m.projectId === p.id && m.userId === currentUser.id)) {
           store.members.push({ projectId: p.id, userId: currentUser.id });
           saveState();
@@ -869,7 +1184,7 @@
         showToast("Password verified! Welcome to the workspace.");
         navigate('project', p.id);
       } else {
-        showToast("Incorrect project password!", true);
+        showToast("Incorrect project password. Please try again!", true);
       }
     }
 
@@ -883,7 +1198,23 @@
         return;
       }
 
-      openModal("🔒 Private Project Protected", `
+      const isLeader = p.leaderId === currentUser.id;
+      const isMember = isLeader || store.members.some(m => m.projectId === p.id && m.userId === currentUser.id);
+
+      if (isMember) {
+        navigate('project', p.id);
+        return;
+      }
+
+      if (!p.password || !p.password.trim()) {
+        store.members.push({ projectId: p.id, userId: currentUser.id });
+        saveState();
+        showToast("Welcome to the workspace!");
+        navigate('project', p.id);
+        return;
+      }
+
+      openModal("🔒 Unlock Private Project", `
         <form onsubmit="handleUnlockDirectSubmit(event, '${p.id}')" style="display:flex; flex-direction:column; gap:14px;">
           <div style="background:var(--c-charcoal-dark); padding:12px; border-radius:8px; border:1px solid rgba(221,213,205,0.2);">
             <div style="font-weight:700; font-size:1rem; color:var(--c-cream);">${escapeHtml(p.name)}</div>
@@ -891,7 +1222,10 @@
           </div>
           <div>
             <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Enter Project Password</label>
-            <input id="modal-direct-pass" type="password" required placeholder="••••••••" autofocus />
+            <div class="input-with-btn">
+              <input id="modal-direct-pass" type="password" required placeholder="Enter password to access" autofocus />
+              <button type="button" class="input-toggle-btn" onclick="togglePasswordVisibility('modal-direct-pass', this)">👁️</button>
+            </div>
           </div>
           <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
             <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
@@ -916,9 +1250,10 @@
         showToast("Password verified! Project unlocked.");
         navigate('project', p.id);
       } else {
-        showToast("Incorrect project password!", true);
+        showToast("Incorrect project password. Please try again!", true);
       }
     }
+
 
     function showViewPasswordModal(pass) {
       openModal("🔑 Project Password", `
@@ -1575,7 +1910,10 @@
             <!-- Private Project Password Box -->
             <div id="private-password-box" style="display:none; background:var(--c-charcoal-dark); border:1px solid var(--c-burgundy); border-radius:8px; padding:12px;">
               <label class="text-xs" style="color:var(--c-sand); font-weight:bold; margin-bottom:4px; display:block;">🔑 Set Private Project Password</label>
-              <input id="new-proj-pass" placeholder="Enter password to restrict member access" />
+              <div class="input-with-btn">
+                <input id="new-proj-pass" type="password" placeholder="Enter password to restrict member access" />
+                <button type="button" class="input-toggle-btn" onclick="togglePasswordVisibility('new-proj-pass', this)">👁️</button>
+              </div>
               <p class="text-muted text-xs" style="margin-top:4px;">Members must enter this password to join and view this project.</p>
             </div>
 

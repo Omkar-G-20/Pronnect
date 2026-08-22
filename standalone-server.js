@@ -170,6 +170,30 @@ const server = http.createServer(async (req, res) => {
     return sendJSON(res, { user: safeUser });
   }
 
+  // Full State Sync Endpoint (Client Mesh & Railway sync)
+  if (pathname === "/api/sync") {
+    if (method === "GET") {
+      return sendJSON(res, { store: db });
+    }
+    if (method === "POST") {
+      const incoming = await parseBody(req);
+      if (incoming && typeof incoming === "object") {
+        if (Array.isArray(incoming.projects)) db.projects = incoming.projects;
+        if (Array.isArray(incoming.users)) db.users = incoming.users;
+        if (Array.isArray(incoming.members)) db.members = incoming.members;
+        if (Array.isArray(incoming.joinRequests)) db.joinRequests = incoming.joinRequests;
+        if (Array.isArray(incoming.tasks)) db.tasks = incoming.tasks;
+        if (Array.isArray(incoming.polls)) db.polls = incoming.polls;
+        if (Array.isArray(incoming.pollVotes)) db.pollVotes = incoming.pollVotes;
+        if (Array.isArray(incoming.messages)) db.messages = incoming.messages;
+        if (Array.isArray(incoming.media)) db.media = incoming.media;
+        saveDB();
+        broadcastEvent("STATE_SYNC", { timestamp: Date.now() });
+        return sendJSON(res, { success: true });
+      }
+    }
+  }
+
   // Auth: Register
   if (pathname === "/api/auth/register" && method === "POST") {
     const { name, email, password, school } = await parseBody(req);
