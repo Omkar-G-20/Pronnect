@@ -96,8 +96,20 @@
 
     /* Bento Grid Features */
     .bento-card { background: linear-gradient(180deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.6) 100%); border: 1px solid rgba(51, 65, 85, 0.6); border-radius: 16px; padding: 28px; }
+
+    /* In-App Glassmorphism Modal System */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(3, 7, 18, 0.82); backdrop-filter: blur(8px); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; opacity: 0; pointer-events: none; transition: opacity 0.2s ease-out; }
+    .modal-overlay.active { opacity: 1; pointer-events: auto; }
+    .modal-card { background: #0f172a; border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 16px; width: 100%; max-width: 480px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75), 0 0 30px rgba(99, 102, 241, 0.2); transform: scale(0.95); transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1); overflow: hidden; }
+    .modal-overlay.active .modal-card { transform: scale(1); }
+    .modal-header { padding: 18px 24px; border-bottom: 1px solid #1e293b; display: flex; justify-content: space-between; align-items: center; background: rgba(30, 41, 59, 0.3); }
+    .modal-body { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+    .modal-footer { padding: 16px 24px; border-top: 1px solid #1e293b; display: flex; justify-content: flex-end; gap: 10px; background: rgba(15, 23, 42, 0.6); }
+    .modal-close-btn { background: transparent; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer; padding: 4px 8px; border-radius: 6px; }
+    .modal-close-btn:hover { background: #1e293b; color: #f8fafc; }
   </style>
 </head>
+
 <body>
   <!-- NAV -->
   <nav>
@@ -120,6 +132,18 @@
 
   <!-- MAIN APP ROOT -->
   <main class="container" id="app-root"></main>
+
+  <!-- IN-APP MODAL ROOT -->
+  <div id="app-modal" class="modal-overlay" onclick="handleModalOverlayClick(event)">
+    <div class="modal-card" id="app-modal-card" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3 id="modal-title" style="font-size:1.1rem; font-weight:700; color:#f8fafc;">Modal Title</h3>
+        <button onclick="closeModal()" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+    </div>
+  </div>
+
   <div id="toast-root"></div>
 
   <script>
@@ -138,8 +162,8 @@
       pollVotes: [],
       messages: [],
       media: [],
-      presence: {}, // userId -> lastActiveTimestamp
-      typing: {}    // roomId -> { userId: userName, timestamp }
+      presence: {},
+      typing: {}
     };
 
     let currentUser = null;
@@ -168,6 +192,21 @@
       toast.innerHTML = (isError ? '⚠️ ' : '✅ ') + msg;
       root.appendChild(toast);
       setTimeout(() => { toast.remove(); }, 3500);
+    }
+
+    // --- IN-PAGE MODAL CONTROLS (NO BROWSER POPUPS) ---
+    function openModal(title, bodyHTML) {
+      document.getElementById('modal-title').innerText = title;
+      document.getElementById('modal-body').innerHTML = bodyHTML;
+      document.getElementById('app-modal').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('app-modal').classList.remove('active');
+    }
+
+    function handleModalOverlayClick(e) {
+      if (e.target.id === 'app-modal') closeModal();
     }
 
     // Save to Cloud + Local cache
@@ -214,14 +253,12 @@
               typing: d.typing || {}
             };
 
-            // Update presence heartbeat for active current user
             if (currentUser) {
               store.presence[currentUser.id] = Date.now();
             }
 
             localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify({ store, currentUser }));
 
-            // Re-render active views
             if (currentView === 'explore') loadProjects();
             if (currentView === 'global-chat') {
               loadGlobalChat();
@@ -246,7 +283,6 @@
       }
     }
 
-    // Heartbeat & cloud polling every 2.5s
     setInterval(() => {
       if (currentUser) {
         store.presence[currentUser.id] = Date.now();
@@ -281,22 +317,49 @@
       }
     }
 
-    // 1-Click Google Sign In (Seamless OAuth & Instant Profile)
+    // 1-Click Google Sign-In In-App Modal (No browser popup!)
     function triggerGoogleSignIn() {
-      // Prompt for user's Google name / 1-click select
-      const googleAccountName = prompt("Sign in with Google:\nEnter your Name (or use your Google account):", currentUser ? currentUser.name : "Alex Rivera");
-      if (!googleAccountName) return;
+      openModal("🚀 Sign In with Google", `
+        <form onsubmit="handleGoogleSignInSubmit(event)" style="display:flex; flex-direction:column; gap:14px;">
+          <div style="text-align:center; padding:10px 0;">
+            <div style="width:52px; height:52px; border-radius:50%; background:#ffffff; margin:0 auto 10px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,0.2);">
+              <svg width="26" height="26" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+            </div>
+            <p class="text-muted text-xs">Enter your display name to instantly link your collaborator profile.</p>
+          </div>
+          <div>
+            <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Your Full Name / Handle</label>
+            <input id="modal-g-name" required placeholder="e.g. Omkar Gurav" autofocus />
+          </div>
+          <div>
+            <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">College / School / Organization</label>
+            <input id="modal-g-school" placeholder="e.g. Dayananda Sagar College of Engineering" />
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
+            <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+            <button type="submit" class="btn btn-primary" style="flex:1;">Continue to Workspace &rarr;</button>
+          </div>
+        </form>
+      `);
+    }
 
-      const email = googleAccountName.toLowerCase().replace(/[^a-z0-9]/g, '') + "@gmail.com";
+    function handleGoogleSignInSubmit(e) {
+      e.preventDefault();
+      const name = document.getElementById('modal-g-name').value.trim();
+      const school = document.getElementById('modal-g-school').value.trim();
+      if (!name) return;
+
+      const email = name.toLowerCase().replace(/[^a-z0-9]/g, '') + "@gmail.com";
       let user = store.users.find(u => u.email.toLowerCase() === email.toLowerCase());
 
       if (!user) {
         user = {
           id: "u_google_" + Date.now(),
-          name: googleAccountName,
+          name: name,
           email: email,
-          picture: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(googleAccountName)}`,
-          school: "Google User",
+          picture: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(name)}`,
+          school: school || "Google User",
+          headline: school ? `Builder & Student at ${school}` : "Collaborator & Builder",
           bio: "Building innovative projects with the Pronnect community.",
           skills: ["Full-Stack", "AI/ML"],
           createdAt: new Date().toISOString()
@@ -307,8 +370,9 @@
       currentUser = user;
       store.presence[user.id] = Date.now();
       saveState();
+      closeModal();
       renderNavAuth();
-      showToast("Signed in as " + user.name + " via Google!");
+      showToast("Welcome, " + user.name + "!");
       navigate('explore');
     }
 
@@ -334,7 +398,7 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // --- 0. FIGMA-INSPIRED STARTUP LANDING PAGE (Node 960-1013) ---
+    // --- 0. FIGMA-INSPIRED STARTUP LANDING PAGE ---
     function renderLandingPageView() {
       const root = document.getElementById('app-root');
       root.innerHTML = `
@@ -614,17 +678,55 @@
       }
     }
 
+    // In-App Modal for Private Project Unlock by Search / Name
     function promptJoinPrivateProject() {
-      const projName = prompt("Enter the exact Name of the Private Project:");
-      if (!projName) return;
-      const p = store.projects.find(x => x.name.toLowerCase() === projName.trim().toLowerCase());
-      if (!p) {
-        showToast("Project not found. Check spelling!", true);
-        return;
-      }
-      promptUnlockPrivateProject(p.id);
+      const privateProjects = store.projects.filter(p => p.visibility === 'PRIVATE');
+      openModal("🔑 Unlock Private Project", `
+        <form onsubmit="handleJoinPrivateProjectSubmit(event)" style="display:flex; flex-direction:column; gap:14px;">
+          <div>
+            <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Select or Type Private Project Name</label>
+            <input id="modal-priv-proj-name" list="priv-proj-list" required placeholder="e.g. Stealth AI Engine" />
+            <datalist id="priv-proj-list">
+              ${privateProjects.map(p => `<option value="${escapeHtml(p.name)}"></option>`).join('')}
+            </datalist>
+          </div>
+          <div>
+            <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Project Password</label>
+            <input id="modal-priv-proj-pass" type="password" required placeholder="Enter password" />
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
+            <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+            <button type="submit" class="btn btn-primary" style="flex:1;">Unlock & Access &rarr;</button>
+          </div>
+        </form>
+      `);
     }
 
+    function handleJoinPrivateProjectSubmit(e) {
+      e.preventDefault();
+      const projName = document.getElementById('modal-priv-proj-name').value.trim();
+      const pass = document.getElementById('modal-priv-proj-pass').value.trim();
+      const p = store.projects.find(x => x.name.toLowerCase() === projName.toLowerCase());
+
+      if (!p) {
+        showToast("Private project not found. Check the name!", true);
+        return;
+      }
+
+      if ((p.password || "").trim() === pass) {
+        if (currentUser && !store.members.some(m => m.projectId === p.id && m.userId === currentUser.id)) {
+          store.members.push({ projectId: p.id, userId: currentUser.id });
+          saveState();
+        }
+        closeModal();
+        showToast("Password verified! Welcome to the workspace.");
+        navigate('project', p.id);
+      } else {
+        showToast("Incorrect project password!", true);
+      }
+    }
+
+    // In-App Modal for Private Project Card Password Unlock
     function promptUnlockPrivateProject(projId) {
       const p = store.projects.find(x => x.id === projId);
       if (!p) return;
@@ -634,19 +736,53 @@
         return;
       }
 
-      const enteredPass = prompt(`🔒 Private Project: "${p.name}"\nEnter Project Password:`);
-      if (enteredPass === null) return;
+      openModal("🔒 Private Project Protected", `
+        <form onsubmit="handleUnlockDirectSubmit(event, '${p.id}')" style="display:flex; flex-direction:column; gap:14px;">
+          <div style="background:#0b0f19; padding:12px; border-radius:8px; border:1px solid #1e293b;">
+            <div style="font-weight:700; font-size:1rem; color:#f8fafc;">${escapeHtml(p.name)}</div>
+            <div class="text-muted text-xs" style="margin-top:2px;">${escapeHtml(p.description)}</div>
+          </div>
+          <div>
+            <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Enter Project Password</label>
+            <input id="modal-direct-pass" type="password" required placeholder="••••••••" autofocus />
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
+            <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+            <button type="submit" class="btn btn-primary" style="flex:1;">Unlock Workspace &rarr;</button>
+          </div>
+        </form>
+      `);
+    }
 
-      if (enteredPass.trim() === (p.password || "").trim()) {
-        if (!store.members.some(m => m.projectId === p.id && m.userId === currentUser.id)) {
+    function handleUnlockDirectSubmit(e, projId) {
+      e.preventDefault();
+      const p = store.projects.find(x => x.id === projId);
+      if (!p) return;
+      const enteredPass = document.getElementById('modal-direct-pass').value.trim();
+
+      if (enteredPass === (p.password || "").trim()) {
+        if (currentUser && !store.members.some(m => m.projectId === p.id && m.userId === currentUser.id)) {
           store.members.push({ projectId: p.id, userId: currentUser.id });
           saveState();
         }
-        showToast("Password verified! Project unlocked.", false);
+        closeModal();
+        showToast("Password verified! Project unlocked.");
         navigate('project', p.id);
       } else {
         showToast("Incorrect project password!", true);
       }
+    }
+
+    function showViewPasswordModal(pass) {
+      openModal("🔑 Project Password", `
+        <div style="display:flex; flex-direction:column; gap:14px; text-align:center; padding:10px 0;">
+          <p class="text-muted text-xs">Share this password with collaborators to allow them to join this private workspace:</p>
+          <div style="background:#0b0f19; border:1px solid #4f46e5; padding:12px; border-radius:8px; font-size:1.2rem; font-weight:800; font-family:monospace; color:#a5b4fc; letter-spacing:2px;">
+            ${escapeHtml(pass || 'None')}
+          </div>
+          <button onclick="closeModal()" class="btn btn-primary" style="margin-top:6px;">Done</button>
+        </div>
+      `);
     }
 
     // --- 2. PROJECT DETAIL & WORKSPACE ---
@@ -683,7 +819,7 @@
             <div style="display:flex; gap:8px;">
               ${!isMember && currentUser && project.visibility === 'PUBLIC' ? `<button onclick="requestToJoin('${project.id}')" class="btn btn-primary">Request to Join</button>` : ''}
               ${!currentUser ? `<button onclick="triggerGoogleSignIn()" class="btn btn-google btn-sm">Sign in to Join</button>` : ''}
-              ${isLeader && project.visibility === 'PRIVATE' ? `<button onclick="alert('Project Password: ' + '${escapeHtml(project.password || 'None')}')" class="btn btn-secondary btn-sm">🔑 View Password</button>` : ''}
+              ${isLeader && project.visibility === 'PRIVATE' ? `<button onclick="showViewPasswordModal('${escapeHtml(project.password || '')}')" class="btn btn-secondary btn-sm">🔑 View Password</button>` : ''}
             </div>
           </div>
 
@@ -732,27 +868,22 @@
       else if (tab === 'requests') loadProjectRequests(activeProjectId);
     }
 
-    // --- TEAM CHAT (WITH ONLINE PRESENCE & TYPING INDICATORS) ---
+    // --- TEAM CHAT ---
     function loadProjectChat(projId) {
       const container = document.getElementById('project-tab-content');
       if (!container) return;
 
       container.innerHTML = `
         <div class="chat-layout">
-          <!-- Chat conversation box -->
           <div class="glass-card" style="display:flex; flex-direction:column; gap:12px;">
             <div id="chat-messages" class="chat-box"></div>
-            
-            <!-- Typing Indicator Alert -->
             <div id="project-typing-indicator" class="typing-indicator" style="display:none;"></div>
-
             <form onsubmit="sendProjectMessage(event, '${projId}')" style="display:flex; gap:8px;">
               <input id="proj-msg-input" oninput="handleTyping('proj_' + '${projId}')" placeholder="Type a message to the team..." style="flex:1;" />
               <button type="submit" class="btn btn-primary">Send</button>
             </form>
           </div>
 
-          <!-- Who is Online Section / Presence Sidebar -->
           <div class="glass-card" style="display:flex; flex-direction:column; gap:12px; height:fit-content;">
             <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155; padding-bottom:8px;">
               <span style="font-weight:700; font-size:0.85rem;">🟢 Who is Online</span>
@@ -815,7 +946,6 @@
         el.style.display = 'none';
         return;
       }
-      // Check if typing happened in last 4 seconds
       if (Date.now() - t.timestamp < 4000) {
         el.style.display = 'inline-flex';
         el.innerHTML = `<span>${escapeHtml(t.userName)} is typing</span><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>`;
@@ -829,9 +959,8 @@
       if (!container) return;
 
       const now = Date.now();
-      const onlineThreshold = 15000; // active in last 15 seconds
+      const onlineThreshold = 15000;
 
-      // Users related to project or global
       let candidateUsers = store.users;
       if (projId) {
         const projectMemberIds = store.members.filter(m => m.projectId === projId).map(m => m.userId);
@@ -852,7 +981,7 @@
               <span class="status-dot ${isOnline ? 'status-online' : 'status-offline'}"></span>
               <span style="font-weight:500;">${escapeHtml(u.name)}</span>
             </div>
-            <span class="text-xs ${isOnline ? 'text-muted' : 'text-muted'}" style="font-size:10px;">${isOnline ? 'Online' : 'Offline'}</span>
+            <span class="text-xs text-muted" style="font-size:10px;">${isOnline ? 'Online' : 'Offline'}</span>
           </div>
         `;
       }).join('');
@@ -948,20 +1077,63 @@
       loadProjectTasks(projId);
     }
 
+    // In-App Modal for Creating Tasks (No browser popup!)
     function showCreateTaskModal(projId) {
       if (!currentUser) { triggerGoogleSignIn(); return; }
-      const title = prompt("Task title:");
+      
+      const projectMembers = store.members.filter(m => m.projectId === projId).map(m => store.users.find(u => u.id === m.userId)).filter(Boolean);
+      const proj = store.projects.find(p => p.id === projId);
+      if (proj) {
+        const leader = store.users.find(u => u.id === proj.leaderId);
+        if (leader && !projectMembers.some(m => m.id === leader.id)) projectMembers.unshift(leader);
+      }
+
+      openModal("📋 Create New Task", `
+        <form onsubmit="handleCreateTaskSubmit(event, '${projId}')" style="display:flex; flex-direction:column; gap:14px;">
+          <div>
+            <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Task Title</label>
+            <input id="modal-task-title" required placeholder="e.g. Integrate obstacle avoidance sensor" autofocus />
+          </div>
+          <div>
+            <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Task Description (optional)</label>
+            <textarea id="modal-task-desc" rows="3" placeholder="Add technical specifications or criteria..."></textarea>
+          </div>
+          <div>
+            <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Assignee</label>
+            <select id="modal-task-assignee">
+              <option value="${currentUser.id}">👤 Assign to Me (${escapeHtml(currentUser.name)})</option>
+              ${projectMembers.filter(m => m.id !== currentUser.id).map(m => `<option value="${m.id}">👤 ${escapeHtml(m.name)}</option>`).join('')}
+              <option value="">Unassigned</option>
+            </select>
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
+            <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+            <button type="submit" class="btn btn-primary" style="flex:1;">Create Task &rarr;</button>
+          </div>
+        </form>
+      `);
+    }
+
+    function handleCreateTaskSubmit(e, projId) {
+      e.preventDefault();
+      const title = document.getElementById('modal-task-title').value.trim();
+      const description = document.getElementById('modal-task-desc').value.trim();
+      const assigneeId = document.getElementById('modal-task-assignee').value;
+
       if (!title) return;
-      const description = prompt("Task description (optional):") || "";
+
       store.tasks.push({
         id: "t_" + Date.now(),
         projectId: projId,
         title,
         description,
         status: "TODO",
-        assigneeId: currentUser ? currentUser.id : null
+        assigneeId: assigneeId || null
       });
+
       saveState();
+      closeModal();
+      showToast("Task added to Kanban board!");
       loadProjectTasks(projId);
     }
 
@@ -1021,20 +1193,57 @@
       loadProjectPolls(projId);
     }
 
+    // In-App Modal for Creating Polls (No browser popup!)
     function showCreatePollModal(projId) {
       if (!currentUser) { triggerGoogleSignIn(); return; }
-      const question = prompt("Poll question:");
-      if (!question) return;
-      const opt1 = prompt("Option 1:");
-      const opt2 = prompt("Option 2:");
-      if (!opt1 || !opt2) return;
+      openModal("📊 Create Team Consensus Poll", `
+        <form onsubmit="handleCreatePollSubmit(event, '${projId}')" style="display:flex; flex-direction:column; gap:14px;">
+          <div>
+            <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Poll Question</label>
+            <input id="modal-poll-q" required placeholder="e.g. Which motor driver should we use?" autofocus />
+          </div>
+          <div>
+            <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Option 1</label>
+            <input id="modal-poll-opt1" required placeholder="e.g. L298N Dual H-Bridge" />
+          </div>
+          <div>
+            <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Option 2</label>
+            <input id="modal-poll-opt2" required placeholder="e.g. TB6612FNG Driver" />
+          </div>
+          <div>
+            <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Option 3 (optional)</label>
+            <input id="modal-poll-opt3" placeholder="e.g. Custom MOSFET PCB" />
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
+            <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+            <button type="submit" class="btn btn-primary" style="flex:1;">Publish Poll &rarr;</button>
+          </div>
+        </form>
+      `);
+    }
+
+    function handleCreatePollSubmit(e, projId) {
+      e.preventDefault();
+      const question = document.getElementById('modal-poll-q').value.trim();
+      const opt1 = document.getElementById('modal-poll-opt1').value.trim();
+      const opt2 = document.getElementById('modal-poll-opt2').value.trim();
+      const opt3 = document.getElementById('modal-poll-opt3').value.trim();
+
+      if (!question || !opt1 || !opt2) return;
+
+      const options = [opt1, opt2];
+      if (opt3) options.push(opt3);
+
       store.polls.push({
         id: "poll_" + Date.now(),
         projectId: projId,
         question,
-        options: [opt1, opt2]
+        options
       });
+
       saveState();
+      closeModal();
+      showToast("Poll published!");
       loadProjectPolls(projId);
     }
 
@@ -1068,18 +1277,43 @@
       `).join('');
     }
 
+    // In-App Modal for Adding Media / Links (No browser popup!)
     function showAddMediaModal(projId) {
       if (!currentUser) { triggerGoogleSignIn(); return; }
-      const name = prompt("Resource name:");
-      const url = prompt("Resource URL (https://...):");
-      if (!url) return;
+      openModal("📁 Share Resource or Link", `
+        <form onsubmit="handleAddMediaSubmit(event, '${projId}')" style="display:flex; flex-direction:column; gap:14px;">
+          <div>
+            <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Resource Name</label>
+            <input id="modal-media-name" required placeholder="e.g. Figma UI Kit or GitHub Repository" autofocus />
+          </div>
+          <div>
+            <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">URL Link (https://...)</label>
+            <input id="modal-media-url" type="url" required placeholder="https://github.com/my-project" />
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
+            <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+            <button type="submit" class="btn btn-primary" style="flex:1;">Add Resource &rarr;</button>
+          </div>
+        </form>
+      `);
+    }
+
+    function handleAddMediaSubmit(e, projId) {
+      e.preventDefault();
+      const name = document.getElementById('modal-media-name').value.trim();
+      const url = document.getElementById('modal-media-url').value.trim();
+      if (!name || !url) return;
+
       store.media.push({
         id: "med_" + Date.now(),
         projectId: projId,
-        name: name || url,
+        name,
         url
       });
+
       saveState();
+      closeModal();
+      showToast("Resource shared with the team!");
       loadProjectMedia(projId);
     }
 
