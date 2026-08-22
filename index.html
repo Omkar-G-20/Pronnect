@@ -136,7 +136,6 @@
           <button class="btn btn-secondary" onclick="navigate('explore')">Explore Projects</button>
           <button class="btn btn-secondary" onclick="navigate('global-chat')">Community Chat</button>
           <button class="btn btn-secondary" onclick="navigate('new-project')">+ Create Project</button>
-          <button class="btn btn-secondary" onclick="showCommunityGuidelinesModal()" style="font-size:0.82rem; opacity:0.85;">📜 Guidelines</button>
         </div>
       </div>
       <div id="nav-auth" style="display:flex; align-items:center; gap:12px;"></div>
@@ -1212,7 +1211,7 @@
       }
     }
 
-    // In-App Modal for Private Project Card Password Unlock
+    // In-App Modal for Private Project Card Password Unlock / Request to Join
     function promptUnlockPrivateProject(projId) {
       const p = store.projects.find(x => x.id === projId);
       if (!p) return;
@@ -1238,32 +1237,89 @@
         return;
       }
 
-      openModal("🔒 Unlock Private Project", `
-        <form onsubmit="handleUnlockDirectSubmit(event, '${p.id}')" style="display:flex; flex-direction:column; gap:14px;">
-          <div style="background:var(--c-charcoal-dark); padding:12px; border-radius:8px; border:1px solid rgba(221,213,205,0.2);">
-            <div style="font-weight:700; font-size:1rem; color:var(--c-cream);">${escapeHtml(p.name)}</div>
-            <div class="text-muted text-xs" style="margin-top:2px;">${escapeHtml(p.description)}</div>
+      const pendingReq = store.joinRequests.find(r => r.projectId === p.id && r.userId === currentUser.id && r.status === 'PENDING');
+
+      openModal("🔒 Private Project Access", `
+        <div style="display:flex; flex-direction:column; gap:16px;">
+          <div style="background:var(--c-charcoal-dark); padding:14px; border-radius:8px; border:1px solid rgba(221,213,205,0.2);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <div style="font-weight:700; font-size:1rem; color:var(--c-cream);">${escapeHtml(p.name)}</div>
+              <span class="badge badge-yellow">🔒 Private</span>
+            </div>
+            <div class="text-muted text-xs">${escapeHtml(p.description)}</div>
           </div>
-          <div>
-            <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Enter Project Password</label>
+
+          <!-- Option 1: Password Unlock Form -->
+          <form onsubmit="handleUnlockDirectSubmit(event, '${p.id}')" style="display:flex; flex-direction:column; gap:10px;">
+            <label class="text-xs text-muted" style="display:block; font-weight:600;">Option 1: Unlock with Password</label>
             <div class="input-with-btn">
-              <input id="modal-direct-pass" type="password" required placeholder="Enter password to access" autofocus />
+              <input id="modal-direct-pass" type="password" placeholder="Enter project password" autofocus />
               <button type="button" class="input-toggle-btn" onclick="togglePasswordVisibility('modal-direct-pass', this)">👁️</button>
             </div>
+            <button type="submit" class="btn btn-primary" style="margin-top:2px;">🔑 Verify & Access &rarr;</button>
+          </form>
+
+          <div style="display:flex; align-items:center; gap:8px; margin:2px 0;">
+            <div style="flex:1; height:1px; background:rgba(221,213,205,0.2);"></div>
+            <span class="text-muted text-xs" style="font-size:11px;">OR</span>
+            <div style="flex:1; height:1px; background:rgba(221,213,205,0.2);"></div>
           </div>
-          <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
-            <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
-            <button type="submit" class="btn btn-primary" style="flex:1;">Unlock Workspace &rarr;</button>
+
+          <!-- Option 2: Send Join Request to Leader -->
+          <div>
+            <label class="text-xs text-muted" style="display:block; margin-bottom:6px; font-weight:600;">Option 2: Request Access from Leader</label>
+            ${pendingReq ? `
+              <div style="background:rgba(234, 179, 8, 0.15); border:1px solid rgba(234, 179, 8, 0.3); padding:10px 14px; border-radius:8px; text-align:center; font-size:0.8rem; color:#fde047;">
+                ⏳ Join request is currently pending leader approval
+              </div>
+            ` : `
+              <button type="button" onclick="requestToJoinPrivate('${p.id}')" class="btn btn-secondary" style="width:100%; border-color:var(--c-sand); color:var(--c-cream);">
+                📝 Send Join Request to Leader
+              </button>
+            `}
           </div>
-        </form>
+
+          <div style="display:flex; justify-content:flex-end; margin-top:4px;">
+            <button type="button" onclick="closeModal()" class="btn btn-secondary btn-sm">Close</button>
+          </div>
+        </div>
       `);
+    }
+
+    function requestToJoinPrivate(projId) {
+      if (!currentUser) { showAuthModal('signup'); return; }
+      const existing = store.joinRequests.find(r => r.projectId === projId && r.userId === currentUser.id);
+      if (existing && existing.status === 'PENDING') {
+        showToast("Join request already pending for leader review!");
+        return;
+      }
+      if (!existing) {
+        store.joinRequests.push({
+          id: "jr_" + Date.now(),
+          projectId: projId,
+          userId: currentUser.id,
+          status: "PENDING",
+          createdAt: new Date().toISOString()
+        });
+      } else {
+        existing.status = "PENDING";
+      }
+      saveState();
+      closeModal();
+      showToast("Join request sent to project leader!");
+      renderExploreView();
     }
 
     function handleUnlockDirectSubmit(e, projId) {
       e.preventDefault();
       const p = store.projects.find(x => x.id === projId);
       if (!p) return;
-      const enteredPass = document.getElementById('modal-direct-pass').value.trim();
+      const enteredPass = (document.getElementById('modal-direct-pass').value || '').trim();
+
+      if (!enteredPass) {
+        showToast("Please enter a password or send a join request!", true);
+        return;
+      }
 
       if (enteredPass === (p.password || "").trim()) {
         if (currentUser && !store.members.some(m => m.projectId === p.id && m.userId === currentUser.id)) {
@@ -1800,6 +1856,88 @@
       showToast("Voice message sent!");
     }
 
+    // --- MESSAGE EDITING & DELETION CONTROLS ---
+    function promptEditMessage(msgId, scope, projId = '') {
+      const m = store.messages.find(x => x.id === msgId);
+      if (!m) return;
+      const msgAgeMs = Date.now() - new Date(m.createdAt).getTime();
+      if (msgAgeMs > 5 * 60 * 1000) {
+        showToast("Messages can only be edited within 5 minutes of sending!", true);
+        return;
+      }
+      openModal("✏️ Edit Message", `
+        <form onsubmit="handleEditMessageSubmit(event, '${msgId}', '${scope}', '${projId}')" style="display:flex; flex-direction:column; gap:14px;">
+          <div>
+            <label class="text-xs text-muted" style="display:block; margin-bottom:4px;">Edit Your Message (Sent within 5 mins)</label>
+            <textarea id="modal-edit-msg-input" required rows="3" style="font-size:0.9rem;">${escapeHtml(m.content || '')}</textarea>
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:8px;">
+            <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+            <button type="submit" class="btn btn-primary" style="flex:1;">Save Edit &rarr;</button>
+          </div>
+        </form>
+      `);
+    }
+
+    async function handleEditMessageSubmit(e, msgId, scope, projId) {
+      e.preventDefault();
+      const m = store.messages.find(x => x.id === msgId);
+      if (!m) return;
+      const msgAgeMs = Date.now() - new Date(m.createdAt).getTime();
+      if (msgAgeMs > 5 * 60 * 1000) {
+        showToast("Edit window expired (5 minute limit).", true);
+        closeModal();
+        return;
+      }
+      const newContent = censorProfanity(document.getElementById('modal-edit-msg-input').value.trim());
+      if (!newContent) return;
+
+      m.content = newContent;
+      m.isEdited = true;
+      m.updatedAt = new Date().toISOString();
+      await saveState();
+      closeModal();
+      showToast("Message updated!");
+      if (scope === 'project') loadProjectChat(projId);
+      else loadGlobalChat();
+    }
+
+    async function deleteMessageForMe(msgId, scope, projId = '') {
+      if (!currentUser) return;
+      const m = store.messages.find(x => x.id === msgId);
+      if (!m) return;
+      if (!m.deletedFor) m.deletedFor = [];
+      if (!m.deletedFor.includes(currentUser.id)) {
+        m.deletedFor.push(currentUser.id);
+      }
+      await saveState();
+      showToast("Message deleted for you.");
+      if (scope === 'project') loadProjectChat(projId);
+      else loadGlobalChat();
+    }
+
+    async function deleteMessageForEveryone(msgId, scope, projId = '') {
+      if (!currentUser) return;
+      const m = store.messages.find(x => x.id === msgId);
+      if (!m) return;
+      const proj = store.projects.find(p => p.id === projId);
+      const isLeader = proj && proj.leaderId === currentUser.id;
+      const isMe = m.senderId === currentUser.id;
+      if (!isMe && !isLeader) {
+        showToast("Unauthorized: You can only delete your own messages for everyone.", true);
+        return;
+      }
+      m.isDeleted = true;
+      m.content = "🚫 This message was deleted";
+      m.file = null;
+      m.audio = null;
+      m.link = null;
+      await saveState();
+      showToast("Message deleted for everyone.");
+      if (scope === 'project') loadProjectChat(projId);
+      else loadGlobalChat();
+    }
+
     function openImageModal(imgSrc) {
       openModal("🖼️ Media Preview", `
         <div style="text-align:center; padding:10px 0;">
@@ -1840,7 +1978,7 @@
       `);
     }
 
-    // --- TEAM CHAT (WITH FILE/MEDIA SHARING, AUDIO MESSAGES, LINKS & PRESENCE) ---
+    // --- TEAM CHAT (WITH FILE/MEDIA SHARING, AUDIO MESSAGES, LINKS, EDIT & DELETE) ---
     function loadProjectChat(projId) {
       const container = document.getElementById('project-tab-content');
       if (!container) return;
@@ -1884,7 +2022,11 @@
         </div>
       `;
 
-      const msgs = store.messages.filter(m => m.projectId === projId);
+      const activeProj = store.projects.find(p => p.id === projId);
+      const isLeader = activeProj && currentUser && activeProj.leaderId === currentUser.id;
+
+      // Filter out messages deleted for me
+      const msgs = store.messages.filter(m => m.projectId === projId && (!currentUser || !m.deletedFor || !m.deletedFor.includes(currentUser.id)));
       const box = document.getElementById('chat-messages');
       if (msgs.length === 0) {
         box.innerHTML = '<div style="text-align:center; color:var(--c-sand); margin:auto;">No messages yet. Start the conversation, share files, or record audio! 👋</div>';
@@ -1893,6 +2035,22 @@
           const isMe = currentUser && m.senderId === currentUser.id;
           const sender = store.users.find(u => u.id === m.senderId) || { name: 'User' };
           
+          if (m.isDeleted) {
+            return `
+              <div style="display:flex; flex-direction:column; align-items:${isMe ? 'flex-end' : 'flex-start'}; margin-bottom:8px;">
+                <div class="text-muted text-xs" style="margin-bottom:2px;">${escapeHtml(sender.name)}</div>
+                <div class="msg-bubble" style="background:rgba(46,46,46,0.6); color:var(--c-sand); font-style:italic; border:1px dashed rgba(221,213,205,0.2); padding:6px 12px; font-size:0.8rem;">
+                  🚫 This message was deleted
+                </div>
+              </div>
+            `;
+          }
+
+          const msgAgeMs = Date.now() - new Date(m.createdAt).getTime();
+          const canEdit = isMe && !m.isDeleted && (msgAgeMs <= 5 * 60 * 1000) && !m.audio && !m.file;
+          const canDeleteEveryone = (isMe || isLeader) && !m.isDeleted;
+          const canDeleteMe = !!currentUser;
+
           let fileMarkup = '';
           if (m.file) {
             if (m.file.type && m.file.type.startsWith('image/')) {
@@ -1934,13 +2092,23 @@
           }
 
           return `
-            <div style="display:flex; flex-direction:column; align-items:${isMe ? 'flex-end' : 'flex-start'};">
-              <div class="text-muted text-xs" style="margin-bottom:2px;">${escapeHtml(sender.name)}</div>
+            <div style="display:flex; flex-direction:column; align-items:${isMe ? 'flex-end' : 'flex-start'}; margin-bottom:8px;">
+              <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
+                <span class="text-muted text-xs">${escapeHtml(sender.name)}</span>
+                <span class="text-muted text-xs" style="font-size:10px; opacity:0.7;">${new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                ${m.isEdited ? '<span class="text-muted text-xs" style="font-size:10px; font-style:italic; opacity:0.8;">(edited)</span>' : ''}
+              </div>
               <div class="msg-bubble ${isMe ? 'msg-me' : 'msg-other'}">
                 ${m.content && !m.link && !m.audio ? `<div>${escapeHtml(censorProfanity(m.content))}</div>` : ''}
                 ${fileMarkup}
                 ${audioMarkup}
                 ${linkMarkup}
+              </div>
+              <!-- Action controls (Edit before 5 min, Delete for me, Delete for everyone) -->
+              <div style="display:flex; gap:4px; margin-top:3px; justify-content:${isMe ? 'flex-end' : 'flex-start'};">
+                ${canEdit ? `<button onclick="promptEditMessage('${m.id}', 'project', '${projId}')" title="Edit message (within 5 mins)" class="btn btn-secondary btn-sm" style="padding:2px 6px; font-size:10px; opacity:0.85;">✏️ Edit</button>` : ''}
+                ${canDeleteMe ? `<button onclick="deleteMessageForMe('${m.id}', 'project', '${projId}')" title="Delete for myself" class="btn btn-secondary btn-sm" style="padding:2px 6px; font-size:10px; opacity:0.85;">🗑️ For me</button>` : ''}
+                ${canDeleteEveryone ? `<button onclick="deleteMessageForEveryone('${m.id}', 'project', '${projId}')" title="Delete for everyone" class="btn btn-secondary btn-sm" style="padding:2px 6px; font-size:10px; color:var(--c-burgundy); opacity:0.9;">🚨 For everyone</button>` : ''}
               </div>
             </div>
           `;
@@ -2681,7 +2849,7 @@
     }
 
     function loadGlobalChat() {
-      const msgs = store.messages.filter(m => !m.projectId);
+      const msgs = store.messages.filter(m => !m.projectId && (!currentUser || !m.deletedFor || !m.deletedFor.includes(currentUser.id)));
       const box = document.getElementById('global-chat-messages');
       if (!box) return;
       if (msgs.length === 0) {
@@ -2691,6 +2859,22 @@
           const isMe = currentUser && m.senderId === currentUser.id;
           const sender = store.users.find(u => u.id === m.senderId) || { name: 'User' };
           
+          if (m.isDeleted) {
+            return `
+              <div style="display:flex; flex-direction:column; align-items:${isMe ? 'flex-end' : 'flex-start'}; margin-bottom:8px;">
+                <div class="text-muted text-xs" style="margin-bottom:2px;">${escapeHtml(sender.name)}</div>
+                <div class="msg-bubble" style="background:rgba(46,46,46,0.6); color:var(--c-sand); font-style:italic; border:1px dashed rgba(221,213,205,0.2); padding:6px 12px; font-size:0.8rem;">
+                  🚫 This message was deleted
+                </div>
+              </div>
+            `;
+          }
+
+          const msgAgeMs = Date.now() - new Date(m.createdAt).getTime();
+          const canEdit = isMe && !m.isDeleted && (msgAgeMs <= 5 * 60 * 1000) && !m.audio && !m.file;
+          const canDeleteEveryone = isMe && !m.isDeleted;
+          const canDeleteMe = !!currentUser;
+
           let fileMarkup = '';
           if (m.file) {
             if (m.file.type && m.file.type.startsWith('image/')) {
@@ -2732,13 +2916,23 @@
           }
 
           return `
-            <div style="display:flex; flex-direction:column; align-items:${isMe ? 'flex-end' : 'flex-start'};">
-              <div class="text-muted text-xs" style="margin-bottom:2px;">${escapeHtml(sender.name)}</div>
+            <div style="display:flex; flex-direction:column; align-items:${isMe ? 'flex-end' : 'flex-start'}; margin-bottom:8px;">
+              <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
+                <span class="text-muted text-xs">${escapeHtml(sender.name)}</span>
+                <span class="text-muted text-xs" style="font-size:10px; opacity:0.7;">${new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                ${m.isEdited ? '<span class="text-muted text-xs" style="font-size:10px; font-style:italic; opacity:0.8;">(edited)</span>' : ''}
+              </div>
               <div class="msg-bubble ${isMe ? 'msg-me' : 'msg-other'}">
                 ${m.content && !m.link && !m.audio ? `<div>${escapeHtml(censorProfanity(m.content))}</div>` : ''}
                 ${fileMarkup}
                 ${audioMarkup}
                 ${linkMarkup}
+              </div>
+              <!-- Action controls (Edit before 5 min, Delete for me, Delete for everyone) -->
+              <div style="display:flex; gap:4px; margin-top:3px; justify-content:${isMe ? 'flex-end' : 'flex-start'};">
+                ${canEdit ? `<button onclick="promptEditMessage('${m.id}', 'global')" title="Edit message (within 5 mins)" class="btn btn-secondary btn-sm" style="padding:2px 6px; font-size:10px; opacity:0.85;">✏️ Edit</button>` : ''}
+                ${canDeleteMe ? `<button onclick="deleteMessageForMe('${m.id}', 'global')" title="Delete for myself" class="btn btn-secondary btn-sm" style="padding:2px 6px; font-size:10px; opacity:0.85;">🗑️ For me</button>` : ''}
+                ${canDeleteEveryone ? `<button onclick="deleteMessageForEveryone('${m.id}', 'global')" title="Delete for everyone" class="btn btn-secondary btn-sm" style="padding:2px 6px; font-size:10px; color:var(--c-burgundy); opacity:0.9;">🚨 For everyone</button>` : ''}
               </div>
             </div>
           `;
