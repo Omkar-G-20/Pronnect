@@ -136,6 +136,7 @@
           <button class="btn btn-secondary" onclick="navigate('explore')">Explore Projects</button>
           <button class="btn btn-secondary" onclick="navigate('global-chat')">Community Chat</button>
           <button class="btn btn-secondary" onclick="navigate('new-project')">+ Create Project</button>
+          <button class="btn btn-secondary" onclick="showCommunityGuidelinesModal()" style="font-size:0.82rem; opacity:0.85;">📜 Guidelines</button>
         </div>
       </div>
       <div id="nav-auth" style="display:flex; align-items:center; gap:12px;"></div>
@@ -579,6 +580,11 @@
       `);
     }
 
+    const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    function isValidEmail(email) {
+      return EMAIL_REGEX.test(String(email).trim());
+    }
+
     function prefillLogin(email) {
       const emailInput = document.getElementById('auth-login-email');
       const passInput = document.getElementById('auth-login-password');
@@ -597,6 +603,11 @@
 
       if (!name || !email || !school || !password) {
         showToast("Please fill in all required fields", true);
+        return;
+      }
+
+      if (!isValidEmail(email)) {
+        showToast("Please enter a valid email address (e.g. name@gmail.com)", true);
         return;
       }
 
@@ -633,6 +644,11 @@
         return;
       }
 
+      if (!isValidEmail(email)) {
+        showToast("Please enter a valid email address (e.g. name@gmail.com)", true);
+        return;
+      }
+
       const existing = store.users.find(u => (u.email && u.email.toLowerCase() === email) || (u.name && u.name.toLowerCase() === email));
 
       if (existing) {
@@ -660,14 +676,14 @@
       showOtpVerificationModal();
     }
 
-    // --- STEP 3: 6-DIGIT OTP VERIFICATION SCREEN ---
+    // --- STEP 3: 6-DIGIT OTP VERIFICATION SCREEN WITH GMAIL TRIGGER ---
     function showOtpVerificationModal() {
       if (!pendingAuth) return;
 
       const email = pendingAuth.data.email;
       const otpCode = pendingAuth.otp;
 
-      openModal("🛡️ Email OTP Verification", `
+      openModal("🛡️ Gmail OTP Verification", `
         <div style="display:flex; flex-direction:column; gap:16px; text-align:center;">
           
           <div style="width:52px; height:52px; border-radius:50%; background:rgba(125,64,71,0.25); border:1px solid var(--c-burgundy); margin:0 auto; display:flex; align-items:center; justify-content:center; font-size:1.5rem;">
@@ -677,21 +693,29 @@
           <div>
             <div style="font-weight:700; font-size:1.1rem; color:var(--c-cream);">Verify Your Identity</div>
             <p class="text-muted text-xs" style="margin-top:4px;">
-              A 6-digit one-time password (OTP) was generated for:
-              <br><strong style="color:var(--c-cream);">${escapeHtml(email)}</strong>
+              A 6-digit security code was dispatched to your email:
+              <br><strong style="color:var(--c-cream); font-size:0.9rem;">${escapeHtml(email)}</strong>
             </p>
           </div>
 
-          <!-- Live In-App Security Delivery Banner -->
+          <!-- Direct Gmail Inbox Action -->
+          <div style="display:flex; justify-content:center; gap:8px;">
+            <a href="https://mail.google.com/mail/u/0/#search/Pronnect" target="_blank" class="btn btn-secondary btn-sm" style="background:rgba(234,67,53,0.15); border-color:rgba(234,67,53,0.4); color:var(--c-cream);">
+              <svg width="13" height="13" viewBox="0 0 24 24"><path fill="#EA4335" d="M12 12.713l-11.985-8.713h23.97l-11.985 8.713zm0 2.574l-12-8.724v13.437h24v-13.437l-12 8.724z"/></svg>
+              <span>Open Gmail Inbox &rarr;</span>
+            </a>
+          </div>
+
+          <!-- Live Security Notification Banner -->
           <div style="background:var(--c-charcoal-dark); border:1px dashed var(--c-burgundy); padding:12px; border-radius:10px; display:flex; flex-direction:column; gap:6px;">
             <div style="font-size:0.75rem; color:var(--c-sand); display:flex; justify-content:space-between; align-items:center;">
               <span>📩 Live OTP Code:</span>
               <button type="button" onclick="document.getElementById('modal-otp-input').value = '${otpCode}'; showToast('OTP auto-filled!');" class="btn btn-secondary btn-sm" style="font-size:10px; padding:2px 8px;">Auto-Fill</button>
             </div>
-            <div style="font-size:1.5rem; font-weight:800; letter-spacing:6px; font-family:monospace; color:var(--c-cream);">
+            <div style="font-size:1.6rem; font-weight:800; letter-spacing:6px; font-family:monospace; color:var(--c-cream);">
               ${otpCode}
             </div>
-            <div class="text-muted text-xs" style="font-size:10px;">(Enter this 6-digit code below to securely authenticate)</div>
+            <div class="text-muted text-xs" style="font-size:10px;">(Security code expires in 5 minutes)</div>
           </div>
 
           <form onsubmit="handleVerifyOTPSubmit(event)" style="display:flex; flex-direction:column; gap:14px;">
@@ -713,7 +737,7 @@
         </div>
       `);
 
-      showToast("OTP sent to " + email + " — Code: " + otpCode);
+      showToast("Security OTP code sent to " + email + " — Code: " + otpCode);
       startOTPTimer();
     }
 
@@ -1285,6 +1309,9 @@
         return;
       }
 
+      const memberCount = store.members.filter(m => m.projectId === project.id).length;
+      const pendingReqCount = store.joinRequests.filter(r => r.projectId === project.id && r.status === 'PENDING').length;
+
       root.innerHTML = `
         <div style="display:flex; flex-direction:column; gap:20px;">
           <div class="glass-card flex justify-between items-center" style="flex-wrap:wrap; gap:16px;">
@@ -1298,7 +1325,9 @@
                 ${(project.tags || []).map(t => `<span class="badge badge-indigo">${t}</span>`).join('')}
               </div>
             </div>
-            <div style="display:flex; gap:8px;">
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              ${isLeader ? `<button onclick="showDeleteProjectConfirmationModal('${project.id}')" class="btn btn-secondary btn-sm" style="border-color:rgba(125,64,71,0.6); color:var(--c-cream); background:rgba(125,64,71,0.25);">🗑️ Delete Project</button>` : ''}
+              ${isMember && !isLeader ? `<button onclick="showLeaveProjectModal('${project.id}')" class="btn btn-secondary btn-sm" style="border-color:rgba(125,64,71,0.5);">🚪 Leave Project</button>` : ''}
               ${!isMember && currentUser && project.visibility === 'PUBLIC' ? `<button onclick="requestToJoin('${project.id}')" class="btn btn-primary">Request to Join</button>` : ''}
               ${!currentUser ? `<button onclick="showAuthModal('signup')" class="btn btn-primary btn-sm">Sign in to Join</button>` : ''}
               ${isLeader && project.visibility === 'PRIVATE' ? `<button onclick="showViewPasswordModal('${escapeHtml(project.password || '')}')" class="btn btn-secondary btn-sm">🔑 View Password</button>` : ''}
@@ -1311,13 +1340,65 @@
             <button onclick="switchProjectTab('polls')" id="ptab-polls" class="btn btn-secondary btn-sm">📊 Polls</button>
             <button onclick="switchProjectTab('media')" id="ptab-media" class="btn btn-secondary btn-sm">📁 Media & Links</button>
             <button onclick="switchProjectTab('progress')" id="ptab-progress" class="btn btn-secondary btn-sm">📈 Progress</button>
-            ${isLeader ? `<button onclick="switchProjectTab('requests')" id="ptab-requests" class="btn btn-secondary btn-sm">👥 Requests</button>` : ''}
+            <button onclick="switchProjectTab('members')" id="ptab-members" class="btn btn-secondary btn-sm">👥 Team (${memberCount})</button>
+            ${isLeader ? `<button onclick="switchProjectTab('requests')" id="ptab-requests" class="btn btn-secondary btn-sm">📥 Requests (${pendingReqCount})</button>` : ''}
           </div>
           <div id="project-tab-content"></div>
         </div>
       `;
 
       switchProjectTab(activeProjectTab || 'chat');
+    }
+
+    // --- LEADER DELETE PROJECT CONFIRMATION MODAL ---
+    function showDeleteProjectConfirmationModal(projId) {
+      const p = store.projects.find(x => x.id === projId);
+      if (!p) return;
+      if (!currentUser || p.leaderId !== currentUser.id) {
+        showToast("Only the project leader can delete this project!", true);
+        return;
+      }
+
+      openModal("⚠️ Confirm Project Deletion", `
+        <div style="display:flex; flex-direction:column; gap:16px; text-align:center; padding:10px 0;">
+          <div style="width:54px; height:54px; border-radius:50%; background:rgba(125,64,71,0.3); border:2px solid var(--c-burgundy); margin:0 auto; display:flex; align-items:center; justify-content:center; font-size:1.8rem;">
+            🚨
+          </div>
+          <div>
+            <h3 style="font-size:1.2rem; font-weight:700; color:var(--c-cream);">Permanently Delete Project?</h3>
+            <p class="text-muted text-xs" style="margin-top:6px; line-height:1.5;">
+              Are you sure you want to delete <strong style="color:var(--c-cream); font-size:0.85rem;">"${escapeHtml(p.name)}"</strong>?
+              <br>All Kanban tasks, polls, team chat messages, and shared files will be permanently wiped.
+            </p>
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
+            <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+            <button type="button" onclick="confirmDeleteProject('${projId}')" class="btn btn-primary" style="background:var(--c-burgundy); border-color:var(--c-burgundy); flex:1;">
+              🗑️ Confirm & Delete Project
+            </button>
+          </div>
+        </div>
+      `);
+    }
+
+    async function confirmDeleteProject(projId) {
+      const p = store.projects.find(x => x.id === projId);
+      if (!p) return;
+
+      // Cascading cleanup of project and linked artifacts
+      store.projects = store.projects.filter(x => x.id !== projId);
+      store.members = store.members.filter(x => x.projectId !== projId);
+      store.tasks = store.tasks.filter(x => x.projectId !== projId);
+      store.polls = store.polls.filter(x => x.projectId !== projId);
+      store.pollVotes = store.pollVotes.filter(x => !store.polls.some(p => p.id === x.pollId));
+      store.messages = store.messages.filter(x => x.projectId !== projId);
+      store.media = store.media.filter(x => x.projectId !== projId);
+      store.joinRequests = store.joinRequests.filter(x => x.projectId !== projId);
+
+      await saveState();
+      closeModal();
+      showToast("Project permanently deleted.");
+      navigate('explore');
     }
 
     function requestToJoin(projId) {
@@ -1336,7 +1417,6 @@
       renderProjectView(projId);
     }
 
-
     function switchProjectTab(tab) {
       activeProjectTab = tab;
       document.querySelectorAll('[id^="ptab-"]').forEach(b => { b.className = 'btn btn-secondary btn-sm'; });
@@ -1348,10 +1428,239 @@
       else if (tab === 'polls') loadProjectPolls(activeProjectId);
       else if (tab === 'media') loadProjectMedia(activeProjectId);
       else if (tab === 'progress') loadProjectProgress(activeProjectId);
+      else if (tab === 'members') loadProjectMembers(activeProjectId);
       else if (tab === 'requests') loadProjectRequests(activeProjectId);
     }
 
-    // --- TEAM CHAT ---
+    // --- 👥 TEAM MEMBERS TAB WITH LEADER KICK & MEMBER LEAVE ---
+    function loadProjectMembers(projId) {
+      const container = document.getElementById('project-tab-content');
+      if (!container) return;
+      const proj = store.projects.find(p => p.id === projId);
+      if (!proj) return;
+
+      const isLeader = currentUser && proj.leaderId === currentUser.id;
+      const memberLinks = store.members.filter(m => m.projectId === projId);
+      const leaderUser = store.users.find(u => u.id === proj.leaderId) || { id: proj.leaderId, name: 'Project Leader', school: 'Leader' };
+
+      const allMembers = [leaderUser];
+      memberLinks.forEach(m => {
+        if (m.userId !== proj.leaderId) {
+          const u = store.users.find(x => x.id === m.userId);
+          if (u && !allMembers.some(ex => ex.id === u.id)) allMembers.push(u);
+        }
+      });
+
+      container.innerHTML = `
+        <div class="glass-card" style="display:flex; flex-direction:column; gap:16px;">
+          <div class="flex justify-between items-center" style="flex-wrap:wrap; gap:10px;">
+            <div>
+              <h3 style="font-weight:600;">Team Members (${allMembers.length})</h3>
+              <p class="text-muted text-xs">Collaborators contributing to this project workspace</p>
+            </div>
+            ${!isLeader && currentUser && store.members.some(m => m.projectId === projId && m.userId === currentUser.id) ? `
+              <button onclick="showLeaveProjectModal('${projId}')" class="btn btn-secondary btn-sm" style="color:var(--c-burgundy); border-color:rgba(125,64,71,0.5);">🚪 Leave Project Team</button>
+            ` : ''}
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            ${allMembers.map(u => {
+              const isThisLeader = u.id === proj.leaderId;
+              const isMe = currentUser && currentUser.id === u.id;
+              const now = Date.now();
+              const lastActive = (store.presence && store.presence[u.id]) || 0;
+              const isOnline = (now - lastActive < 15000) || isMe;
+
+              return `
+                <div style="display:flex; justify-content:space-between; align-items:center; background:var(--c-charcoal-dark); border:1px solid rgba(221,213,205,0.15); border-radius:10px; padding:12px 16px; flex-wrap:wrap; gap:12px;">
+                  <div style="display:flex; align-items:center; gap:12px;">
+                    <div style="position:relative;">
+                      <div style="width:38px; height:38px; border-radius:50%; background:var(--c-burgundy); color:var(--c-cream); display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:14px;">
+                        ${(u.name || 'U').slice(0, 1).toUpperCase()}
+                      </div>
+                      <div class="status-dot ${isOnline ? 'status-online' : 'status-offline'}" style="position:absolute; bottom:0; right:0;"></div>
+                    </div>
+                    <div>
+                      <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="font-weight:600; font-size:0.9rem; color:var(--c-cream);">${escapeHtml(u.name)}</span>
+                        ${isThisLeader ? `<span class="badge badge-yellow" style="font-size:10px;">👑 Project Leader</span>` : `<span class="badge badge-indigo" style="font-size:10px;">Team Member</span>`}
+                        ${isMe ? `<span class="badge badge-green" style="font-size:10px;">You</span>` : ''}
+                      </div>
+                      <div class="text-muted text-xs" style="font-size:11px;">${escapeHtml(u.school || u.email || 'Collaborator')}</div>
+                    </div>
+                  </div>
+
+                  <div style="display:flex; gap:8px; align-items:center;">
+                    <button onclick="navigate('profile', '${u.id}')" class="btn btn-secondary btn-sm" style="font-size:11px;">View Profile</button>
+                    ${isLeader && !isThisLeader ? `
+                      <button onclick="showKickMemberModal('${projId}', '${u.id}', '${escapeHtml(u.name)}')" class="btn btn-secondary btn-sm" style="color:var(--c-burgundy); border-color:rgba(125,64,71,0.5); font-size:11px;">
+                        ❌ Kick Member
+                      </button>
+                    ` : ''}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    function showKickMemberModal(projId, userId, memberName) {
+      openModal("❌ Remove Member", `
+        <div style="display:flex; flex-direction:column; gap:14px; text-align:center; padding:10px 0;">
+          <div style="font-size:1.6rem;">⚠️</div>
+          <h3 style="font-size:1.1rem; font-weight:700; color:var(--c-cream);">Kick ${memberName}?</h3>
+          <p class="text-muted text-xs">Are you sure you want to remove <strong>${memberName}</strong> from this project workspace team?</p>
+          <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
+            <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+            <button type="button" onclick="confirmKickMember('${projId}', '${userId}')" class="btn btn-primary" style="background:var(--c-burgundy); border-color:var(--c-burgundy); flex:1;">
+              ❌ Confirm Removal
+            </button>
+          </div>
+        </div>
+      `);
+    }
+
+    async function confirmKickMember(projId, userId) {
+      store.members = store.members.filter(m => !(m.projectId === projId && m.userId === userId));
+      await saveState();
+      closeModal();
+      showToast("Member removed from team.");
+      loadProjectMembers(projId);
+      renderProjectView(projId);
+    }
+
+    function showLeaveProjectModal(projId) {
+      openModal("🚪 Leave Project Team", `
+        <div style="display:flex; flex-direction:column; gap:14px; text-align:center; padding:10px 0;">
+          <div style="font-size:1.6rem;">🚪</div>
+          <h3 style="font-size:1.1rem; font-weight:700; color:var(--c-cream);">Leave this Project?</h3>
+          <p class="text-muted text-xs">Are you sure you want to leave this project team workspace?</p>
+          <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
+            <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+            <button type="button" onclick="confirmLeaveProject('${projId}')" class="btn btn-primary" style="background:var(--c-burgundy); border-color:var(--c-burgundy); flex:1;">
+              🚪 Confirm Leave
+            </button>
+          </div>
+        </div>
+      `);
+    }
+
+    async function confirmLeaveProject(projId) {
+      if (!currentUser) return;
+      store.members = store.members.filter(m => !(m.projectId === projId && m.userId === currentUser.id));
+      await saveState();
+      closeModal();
+      showToast("You have left the project workspace.");
+      navigate('explore');
+    }
+
+    // --- FILE & MEDIA HELPER STATE ---
+    let stagedFiles = { project: null, global: null };
+
+    function formatFileSize(bytes) {
+      if (!bytes) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+
+    function triggerFileInput(scope) {
+      const input = document.getElementById(scope + '-file-input');
+      if (input) input.click();
+    }
+
+    function handleFileSelected(e, scope) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      if (file.size > 8 * 1024 * 1024) {
+        showToast("File size too large! Please upload files under 8MB.", true);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        stagedFiles[scope] = {
+          name: file.name,
+          type: file.type || 'application/octet-stream',
+          size: file.size,
+          data: evt.target.result
+        };
+        renderFilePreview(scope);
+        showToast("File attached: " + file.name);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function clearStagedFile(scope) {
+      stagedFiles[scope] = null;
+      const input = document.getElementById(scope + '-file-input');
+      if (input) input.value = '';
+      renderFilePreview(scope);
+    }
+
+    function renderFilePreview(scope) {
+      const previewEl = document.getElementById(scope + '-file-preview');
+      if (!previewEl) return;
+      const f = stagedFiles[scope];
+      if (!f) {
+        previewEl.style.display = 'none';
+        previewEl.innerHTML = '';
+        return;
+      }
+      previewEl.style.display = 'flex';
+      previewEl.innerHTML = `
+        <div style="display:flex; align-items:center; gap:8px; background:var(--c-charcoal-dark); border:1px solid var(--c-burgundy); padding:6px 12px; border-radius:6px; font-size:0.75rem; color:var(--c-cream);">
+          <span>📎 ${escapeHtml(f.name)} (${formatFileSize(f.size)})</span>
+          <button type="button" onclick="clearStagedFile('${scope}')" style="background:none; border:none; color:var(--c-burgundy); cursor:pointer; font-weight:bold; font-size:12px;">✕</button>
+        </div>
+      `;
+    }
+
+    function openImageModal(imgSrc) {
+      openModal("🖼️ Media Preview", `
+        <div style="text-align:center; padding:10px 0;">
+          <img src="${imgSrc}" style="max-width:100%; max-height:70vh; border-radius:10px; object-fit:contain; border:1px solid rgba(221,213,205,0.2);" />
+          <div style="margin-top:14px; display:flex; justify-content:center; gap:8px;">
+            <a href="${imgSrc}" download="pronnect-media" class="btn btn-primary btn-sm">⬇️ Download File</a>
+            <button onclick="closeModal()" class="btn btn-secondary btn-sm">Close</button>
+          </div>
+        </div>
+      `);
+    }
+
+    function showCommunityGuidelinesModal() {
+      openModal("📜 Pronnect Community Guidelines", `
+        <div style="display:flex; flex-direction:column; gap:14px; padding:10px 0; max-height:70vh; overflow-y:auto;">
+          <div style="border-left:3px solid var(--c-burgundy); padding-left:12px;">
+            <div style="font-weight:700; color:var(--c-cream); font-size:0.95rem;">1. Respect & Inclusivity</div>
+            <p class="text-muted text-xs" style="margin-top:2px;">Treat all builders, student developers, and designers with empathy and mutual respect. No harassment or discriminatory language.</p>
+          </div>
+          <div style="border-left:3px solid var(--c-sand); padding-left:12px;">
+            <div style="font-weight:700; color:var(--c-cream); font-size:0.95rem;">2. Constructive Collaboration</div>
+            <p class="text-muted text-xs" style="margin-top:2px;">Foster genuine hackathon projects, provide constructive code/design feedback, and contribute actively to team sprints.</p>
+          </div>
+          <div style="border-left:3px solid var(--c-burgundy); padding-left:12px;">
+            <div style="font-weight:700; color:var(--c-cream); font-size:0.95rem;">3. Safe Media & Code Sharing</div>
+            <p class="text-muted text-xs" style="margin-top:2px;">Never upload malware, malicious scripts, credentials, API keys, or copyrighted work without proper rights.</p>
+          </div>
+          <div style="border-left:3px solid var(--c-sand); padding-left:12px;">
+            <div style="font-weight:700; color:var(--c-cream); font-size:0.95rem;">4. Zero Tolerance for Spam</div>
+            <p class="text-muted text-xs" style="margin-top:2px;">Do not flood chat channels with unsolicited commercial promotions, bot spam, or repetitive link dumping.</p>
+          </div>
+          <div style="border-left:3px solid var(--c-burgundy); padding-left:12px;">
+            <div style="font-weight:700; color:var(--c-cream); font-size:0.95rem;">5. Intellectual Property & Credit</div>
+            <p class="text-muted text-xs" style="margin-top:2px;">Always credit fellow project collaborators, maintain open-source licensing clarity, and honor project leader rules.</p>
+          </div>
+          <button onclick="closeModal()" class="btn btn-primary" style="margin-top:8px;">I Agree & Understand</button>
+        </div>
+      `);
+    }
+
+    // --- TEAM CHAT (WITH FILE/MEDIA SHARING & ONLINE PRESENCE) ---
     function loadProjectChat(projId) {
       const container = document.getElementById('project-tab-content');
       if (!container) return;
@@ -1361,8 +1670,12 @@
           <div class="glass-card" style="display:flex; flex-direction:column; gap:12px;">
             <div id="chat-messages" class="chat-box"></div>
             <div id="project-typing-indicator" class="typing-indicator" style="display:none;"></div>
-            <form onsubmit="sendProjectMessage(event, '${projId}')" style="display:flex; gap:8px;">
-              <input id="proj-msg-input" oninput="handleTyping('proj_' + '${projId}')" placeholder="Type a message to the team..." style="flex:1;" />
+            <div id="project-file-preview" style="display:none; margin-bottom:-4px;"></div>
+            
+            <form onsubmit="sendProjectMessage(event, '${projId}')" style="display:flex; gap:8px; align-items:center;">
+              <input type="file" id="project-file-input" onchange="handleFileSelected(event, 'project')" style="display:none;" />
+              <button type="button" onclick="triggerFileInput('project')" class="btn btn-secondary" title="Attach image or file" style="padding:10px 12px; font-size:1.1rem;">📎</button>
+              <input id="proj-msg-input" oninput="handleTyping('proj_' + '${projId}')" placeholder="Type a message or attach a file..." style="flex:1;" />
               <button type="submit" class="btn btn-primary">Send</button>
             </form>
           </div>
@@ -1380,15 +1693,37 @@
       const msgs = store.messages.filter(m => m.projectId === projId);
       const box = document.getElementById('chat-messages');
       if (msgs.length === 0) {
-        box.innerHTML = '<div style="text-align:center; color:var(--c-sand); margin:auto;">No messages yet. Start the conversation! 👋</div>';
+        box.innerHTML = '<div style="text-align:center; color:var(--c-sand); margin:auto;">No messages yet. Start the conversation or share files! 👋</div>';
       } else {
         box.innerHTML = msgs.map(m => {
           const isMe = currentUser && m.senderId === currentUser.id;
           const sender = store.users.find(u => u.id === m.senderId) || { name: 'User' };
+          
+          let fileMarkup = '';
+          if (m.file) {
+            if (m.file.type && m.file.type.startsWith('image/')) {
+              fileMarkup = `<img src="${m.file.data}" alt="${escapeHtml(m.file.name)}" onclick="openImageModal('${m.file.data}')" style="max-width:240px; max-height:180px; border-radius:8px; display:block; margin-top:6px; cursor:pointer; border:1px solid rgba(221,213,205,0.2);" />`;
+            } else {
+              fileMarkup = `
+                <div style="display:flex; align-items:center; gap:8px; background:rgba(0,0,0,0.3); border:1px solid rgba(221,213,205,0.2); padding:8px 12px; border-radius:8px; margin-top:6px;">
+                  <span style="font-size:1.2rem;">📎</span>
+                  <div style="flex:1; overflow:hidden;">
+                    <div style="font-weight:600; font-size:0.75rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(m.file.name)}</div>
+                    <div class="text-muted text-xs" style="font-size:10px;">${formatFileSize(m.file.size)}</div>
+                  </div>
+                  <a href="${m.file.data}" download="${escapeHtml(m.file.name)}" class="btn btn-secondary btn-sm" style="font-size:10px; padding:3px 8px;">⬇️</a>
+                </div>
+              `;
+            }
+          }
+
           return `
             <div style="display:flex; flex-direction:column; align-items:${isMe ? 'flex-end' : 'flex-start'};">
               <div class="text-muted text-xs" style="margin-bottom:2px;">${escapeHtml(sender.name)}</div>
-              <div class="msg-bubble ${isMe ? 'msg-me' : 'msg-other'}">${escapeHtml(m.content)}</div>
+              <div class="msg-bubble ${isMe ? 'msg-me' : 'msg-other'}">
+                ${m.content ? `<div>${escapeHtml(m.content)}</div>` : ''}
+                ${fileMarkup}
+              </div>
             </div>
           `;
         }).join('');
@@ -1479,9 +1814,12 @@
       e.preventDefault();
       if (!currentUser) { showAuthModal('signup'); return; }
       const input = document.getElementById('proj-msg-input');
-      const content = input.value.trim();
-      if (!content) return;
-      input.value = '';
+      const content = input ? input.value.trim() : '';
+      const attachedFile = stagedFiles.project;
+
+      if (!content && !attachedFile) return;
+
+      if (input) input.value = '';
 
       if (store.typing && store.typing['proj_' + projId]) {
         delete store.typing['proj_' + projId];
@@ -1492,8 +1830,11 @@
         projectId: projId,
         senderId: currentUser.id,
         content: content,
+        file: attachedFile || null,
         createdAt: new Date().toISOString()
       });
+
+      clearStagedFile('project');
       saveState();
       loadProjectChat(projId);
     }
@@ -1980,17 +2321,20 @@
       navigate('project', newProj.id);
     }
 
-    // --- GLOBAL COMMUNITY CHAT (WITH ONLINE PRESENCE & TYPING INDICATORS) ---
+    // --- GLOBAL COMMUNITY CHAT (WITH FILE/MEDIA SHARING & ONLINE PRESENCE) ---
     function renderGlobalChatView() {
       const root = document.getElementById('app-root');
       root.innerHTML = `
         <div style="display:flex; flex-direction:column; gap:16px;">
-          <div class="flex justify-between items-center">
+          <div class="flex justify-between items-center" style="flex-wrap:wrap; gap:12px;">
             <div>
               <h1 style="font-size:1.5rem; font-weight:bold;">Global Community Chat</h1>
-              <p class="text-muted text-xs">Live platform-wide chat for all profiles</p>
+              <p class="text-muted text-xs">Live platform-wide chat for all profiles across all networks</p>
             </div>
-            <span class="badge badge-green"><span class="status-dot status-online" style="margin-right:4px;"></span> Live Cloud Sync</span>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <button onclick="showCommunityGuidelinesModal()" class="btn btn-secondary btn-sm" style="font-size:11px;">📜 Community Guidelines</button>
+              <span class="badge badge-green"><span class="status-dot status-online" style="margin-right:4px;"></span> Global Mesh Active</span>
+            </div>
           </div>
 
           <div class="chat-layout">
@@ -1999,9 +2343,14 @@
               
               <!-- Typing Indicator Alert -->
               <div id="global-typing-indicator" class="typing-indicator" style="display:none;"></div>
+              
+              <!-- File Preview Bar -->
+              <div id="global-file-preview" style="display:none; margin-bottom:-4px;"></div>
 
-              <form onsubmit="sendGlobalMessage(event)" style="display:flex; gap:8px;">
-                <input id="global-msg-input" oninput="handleTyping('global')" placeholder="${currentUser ? 'Type a message to the community...' : 'Sign in / Create Account to chat...'}" ${!currentUser ? 'disabled' : ''} style="flex:1;" />
+              <form onsubmit="sendGlobalMessage(event)" style="display:flex; gap:8px; align-items:center;">
+                <input type="file" id="global-file-input" onchange="handleFileSelected(event, 'global')" style="display:none;" />
+                <button type="button" onclick="triggerFileInput('global')" ${!currentUser ? 'disabled' : ''} class="btn btn-secondary" title="Attach file or media" style="padding:10px 12px; font-size:1.1rem;">📎</button>
+                <input id="global-msg-input" oninput="handleTyping('global')" placeholder="${currentUser ? 'Type a message or attach a file...' : 'Sign in / Create Account to chat...'}" ${!currentUser ? 'disabled' : ''} style="flex:1;" />
                 <button type="submit" ${!currentUser ? 'disabled' : ''} class="btn btn-primary">Send</button>
               </form>
             </div>
@@ -2032,10 +2381,32 @@
         box.innerHTML = msgs.map(m => {
           const isMe = currentUser && m.senderId === currentUser.id;
           const sender = store.users.find(u => u.id === m.senderId) || { name: 'User' };
+          
+          let fileMarkup = '';
+          if (m.file) {
+            if (m.file.type && m.file.type.startsWith('image/')) {
+              fileMarkup = `<img src="${m.file.data}" alt="${escapeHtml(m.file.name)}" onclick="openImageModal('${m.file.data}')" style="max-width:240px; max-height:180px; border-radius:8px; display:block; margin-top:6px; cursor:pointer; border:1px solid rgba(221,213,205,0.2);" />`;
+            } else {
+              fileMarkup = `
+                <div style="display:flex; align-items:center; gap:8px; background:rgba(0,0,0,0.3); border:1px solid rgba(221,213,205,0.2); padding:8px 12px; border-radius:8px; margin-top:6px;">
+                  <span style="font-size:1.2rem;">📎</span>
+                  <div style="flex:1; overflow:hidden;">
+                    <div style="font-weight:600; font-size:0.75rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(m.file.name)}</div>
+                    <div class="text-muted text-xs" style="font-size:10px;">${formatFileSize(m.file.size)}</div>
+                  </div>
+                  <a href="${m.file.data}" download="${escapeHtml(m.file.name)}" class="btn btn-secondary btn-sm" style="font-size:10px; padding:3px 8px;">⬇️</a>
+                </div>
+              `;
+            }
+          }
+
           return `
             <div style="display:flex; flex-direction:column; align-items:${isMe ? 'flex-end' : 'flex-start'};">
               <div class="text-muted text-xs" style="margin-bottom:2px;">${escapeHtml(sender.name)}</div>
-              <div class="msg-bubble ${isMe ? 'msg-me' : 'msg-other'}">${escapeHtml(m.content)}</div>
+              <div class="msg-bubble ${isMe ? 'msg-me' : 'msg-other'}">
+                ${m.content ? `<div>${escapeHtml(m.content)}</div>` : ''}
+                ${fileMarkup}
+              </div>
             </div>
           `;
         }).join('');
@@ -2048,9 +2419,12 @@
       e.preventDefault();
       if (!currentUser) { showAuthModal('signup'); return; }
       const input = document.getElementById('global-msg-input');
-      const content = input.value.trim();
-      if (!content) return;
-      input.value = '';
+      const content = input ? input.value.trim() : '';
+      const attachedFile = stagedFiles.global;
+
+      if (!content && !attachedFile) return;
+
+      if (input) input.value = '';
 
       if (store.typing && store.typing['global']) {
         delete store.typing['global'];
@@ -2061,8 +2435,11 @@
         projectId: null,
         senderId: currentUser.id,
         content: content,
+        file: attachedFile || null,
         createdAt: new Date().toISOString()
       });
+
+      clearStagedFile('global');
       await saveState();
       loadGlobalChat();
     }
