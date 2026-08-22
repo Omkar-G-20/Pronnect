@@ -10,19 +10,28 @@
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
   <style>
+    :root {
+      --c-cream: #F1ECE6;
+      --c-sand: #DDD5CD;
+      --c-burgundy: #7D4047;
+      --c-charcoal: #2E2E2E;
+      --c-charcoal-card: #383434;
+      --c-charcoal-dark: #222020;
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background-color: #030712; color: #f9fafb; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; line-height: 1.5; min-height: 100vh; display: flex; flex-direction: column; overflow-x: hidden; }
+    body { background-color: var(--c-charcoal); color: var(--c-cream); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; line-height: 1.5; min-height: 100vh; display: flex; flex-direction: column; overflow-x: hidden; }
     
     /* Layout & Container */
     .container { max-width: 1200px; margin: 0 auto; width: 100%; padding: 24px 16px; flex: 1; }
-    nav { background: rgba(17, 24, 39, 0.85); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(55, 65, 81, 0.4); position: sticky; top: 0; z-index: 50; padding: 14px 24px; }
+    nav { background: rgba(46, 46, 46, 0.92); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(221, 213, 205, 0.25); position: sticky; top: 0; z-index: 50; padding: 14px 24px; }
     .nav-inner { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
     .nav-links { display: flex; gap: 8px; align-items: center; }
     
     /* Glassmorphism & Cards */
-    .glass-card { background: rgba(17, 24, 39, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(55, 65, 81, 0.5); border-radius: 14px; padding: 22px; transition: transform 0.2s, border-color 0.2s; }
-    .glass-card:hover { border-color: rgba(99, 102, 241, 0.4); }
-    .glass-pill { background: rgba(31, 41, 55, 0.6); border: 1px solid rgba(75, 85, 99, 0.4); border-radius: 9999px; }
+    .glass-card { background: rgba(56, 52, 52, 0.65); backdrop-filter: blur(12px); border: 1px solid rgba(221, 213, 205, 0.22); border-radius: 14px; padding: 22px; transition: transform 0.2s, border-color 0.2s; color: var(--c-cream); }
+    .glass-card:hover { border-color: var(--c-burgundy); }
+    .glass-pill { background: rgba(46, 46, 46, 0.85); border: 1px solid rgba(221, 213, 205, 0.35); border-radius: 9999px; }
     
     /* Grids & Flex */
     .grid { display: grid; gap: 18px; }
@@ -38,77 +47,78 @@
     .gap-4 { gap: 16px; }
     
     /* Typography & Visuals */
-    .gradient-text { background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; }
-    .hero-glow { position: absolute; top: -120px; left: 50%; transform: translateX(-50%); width: 600px; height: 350px; background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, rgba(168, 85, 247, 0.15) 50%, transparent 70%); filter: blur(60px); pointer-events: none; z-index: 0; }
+    .gradient-text { background: linear-gradient(135deg, var(--c-cream) 0%, var(--c-sand) 40%, var(--c-burgundy) 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; }
+    .hero-glow { position: absolute; top: -120px; left: 50%; transform: translateX(-50%); width: 600px; height: 350px; background: radial-gradient(circle, rgba(125, 64, 71, 0.4) 0%, rgba(221, 213, 205, 0.15) 50%, transparent 70%); filter: blur(60px); pointer-events: none; z-index: 0; }
     .text-sm { font-size: 0.875rem; }
     .text-xs { font-size: 0.75rem; }
-    .text-muted { color: #9ca3af; }
+    .text-muted { color: var(--c-sand); opacity: 0.85; }
     
     /* Badges */
-    .badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 500; background: #1f2937; border: 1px solid #374151; color: #d1d5db; }
-    .badge-indigo { background: rgba(99, 102, 241, 0.15); border-color: rgba(99, 102, 241, 0.3); color: #a5b4fc; }
-    .badge-green { background: rgba(34, 197, 94, 0.15); border-color: rgba(34, 197, 94, 0.3); color: #86efac; }
-    .badge-yellow { background: rgba(234, 179, 8, 0.15); border-color: rgba(234, 179, 8, 0.3); color: #fde047; }
+    .badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 500; background: var(--c-charcoal); border: 1px solid rgba(221, 213, 205, 0.3); color: var(--c-sand); }
+    .badge-indigo, .badge-accent { background: rgba(125, 64, 71, 0.25); border-color: rgba(125, 64, 71, 0.6); color: var(--c-cream); }
+    .badge-green { background: rgba(125, 64, 71, 0.2); border-color: rgba(221, 213, 205, 0.4); color: var(--c-sand); }
+    .badge-yellow { background: rgba(221, 213, 205, 0.15); border-color: rgba(221, 213, 205, 0.4); color: var(--c-sand); }
     
     /* Forms & Buttons */
-    input, textarea, select { width: 100%; padding: 10px 14px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #f9fafb; font-size: 0.875rem; outline: none; transition: border-color 0.2s; }
-    input:focus, textarea:focus, select:focus { border-color: #6366f1; }
+    input, textarea, select { width: 100%; padding: 10px 14px; background: var(--c-charcoal-dark); border: 1px solid rgba(221, 213, 205, 0.25); border-radius: 8px; color: var(--c-cream); font-size: 0.875rem; outline: none; transition: border-color 0.2s; }
+    input:focus, textarea:focus, select:focus { border-color: var(--c-burgundy); }
     button { cursor: pointer; border: none; border-radius: 8px; font-weight: 500; font-size: 0.875rem; transition: all 0.2s; }
     .btn { padding: 9px 18px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
-    .btn-primary { background: #4f46e5; color: white; box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35); }
-    .btn-primary:hover { background: #4338ca; transform: translateY(-1px); }
-    .btn-secondary { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; }
-    .btn-secondary:hover { background: #334155; }
+    .btn-primary { background: var(--c-burgundy); color: var(--c-cream); box-shadow: 0 4px 14px rgba(125, 64, 71, 0.4); }
+    .btn-primary:hover { background: #964e56; transform: translateY(-1px); }
+    .btn-secondary { background: var(--c-charcoal-card); color: var(--c-cream); border: 1px solid rgba(221, 213, 205, 0.3); }
+    .btn-secondary:hover { background: #444040; border-color: var(--c-sand); }
     .btn-sm { padding: 6px 12px; font-size: 0.75rem; }
     
     /* Google Sign-in Button Styles */
-    .btn-google { background: #ffffff; color: #1f2937; border: 1px solid #e5e7eb; font-weight: 600; padding: 11px 20px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-    .btn-google:hover { background: #f9fafb; transform: translateY(-1px); }
+    .btn-google { background: var(--c-cream); color: var(--c-charcoal); border: 1px solid var(--c-sand); font-weight: 600; padding: 11px 20px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+    .btn-google:hover { background: var(--c-sand); transform: translateY(-1px); }
     
     /* Chat Layout & Presence Sidebar */
     .chat-layout { display: grid; grid-template-columns: 1fr 240px; gap: 16px; }
     @media (max-width: 768px) { .chat-layout { grid-template-columns: 1fr; } }
-    .chat-box { height: 440px; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; background: #0b0f19; border-radius: 8px; }
+    .chat-box { height: 440px; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; background: var(--c-charcoal-dark); border: 1px solid rgba(221, 213, 205, 0.15); border-radius: 8px; }
     .msg-bubble { padding: 8px 14px; border-radius: 16px; max-width: 80%; font-size: 0.875rem; word-break: break-word; }
-    .msg-me { align-self: flex-end; background: #4f46e5; color: white; border-bottom-right-radius: 2px; }
-    .msg-other { align-self: flex-start; background: #1e293b; color: #f1f5f9; border-bottom-left-radius: 2px; }
+    .msg-me { align-self: flex-end; background: var(--c-burgundy); color: var(--c-cream); border-bottom-right-radius: 2px; }
+    .msg-other { align-self: flex-start; background: var(--c-charcoal-card); color: var(--c-cream); border: 1px solid rgba(221, 213, 205, 0.2); border-bottom-left-radius: 2px; }
     
     /* Online indicator pulse */
     .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-    .status-online { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
-    .status-offline { background: #64748b; }
+    .status-online { background: #4ade80; box-shadow: 0 0 8px #4ade80; }
+    .status-offline { background: var(--c-sand); opacity: 0.5; }
     
     /* Typing Indicator Animation */
-    .typing-indicator { display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; font-size: 0.75rem; color: #a5b4fc; font-style: italic; }
-    .typing-dot { width: 4px; height: 4px; background: #a5b4fc; border-radius: 50%; animation: blink 1.2s infinite ease-in-out; }
+    .typing-indicator { display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; font-size: 0.75rem; color: var(--c-sand); font-style: italic; }
+    .typing-dot { width: 4px; height: 4px; background: var(--c-sand); border-radius: 50%; animation: blink 1.2s infinite ease-in-out; }
     .typing-dot:nth-child(2) { animation-delay: 0.2s; }
     .typing-dot:nth-child(3) { animation-delay: 0.4s; }
     @keyframes blink { 0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1.2); } }
     
     /* Progress Track */
-    .progress-track { width: 100%; height: 10px; background: #1e293b; border-radius: 9999px; overflow: hidden; }
-    .progress-fill { height: 100%; background: linear-gradient(90deg, #6366f1, #22c55e); transition: width 0.4s; }
+    .progress-track { width: 100%; height: 10px; background: var(--c-charcoal-dark); border-radius: 9999px; overflow: hidden; border: 1px solid rgba(221, 213, 205, 0.2); }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--c-burgundy), var(--c-sand)); transition: width 0.4s; }
     
     /* Toast */
     #toast-root { position: fixed; bottom: 20px; right: 20px; z-index: 100; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
-    .toast { padding: 12px 18px; border-radius: 8px; font-size: 0.875rem; background: #0f172a; border: 1px solid #4f46e5; color: white; box-shadow: 0 10px 25px rgba(0,0,0,0.5); pointer-events: auto; }
-    .toast-err { border-color: #ef4444; background: #450a0a; }
+    .toast { padding: 12px 18px; border-radius: 8px; font-size: 0.875rem; background: var(--c-charcoal-dark); border: 1px solid var(--c-burgundy); color: var(--c-cream); box-shadow: 0 10px 25px rgba(0,0,0,0.5); pointer-events: auto; }
+    .toast-err { border-color: var(--c-burgundy); background: #451b1f; }
 
     /* Bento Grid Features */
-    .bento-card { background: linear-gradient(180deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.6) 100%); border: 1px solid rgba(51, 65, 85, 0.6); border-radius: 16px; padding: 28px; }
+    .bento-card { background: linear-gradient(180deg, rgba(56, 52, 52, 0.5) 0%, rgba(46, 46, 46, 0.7) 100%); border: 1px solid rgba(221, 213, 205, 0.25); border-radius: 16px; padding: 28px; }
 
     /* In-App Glassmorphism Modal System */
-    .modal-overlay { position: fixed; inset: 0; background: rgba(3, 7, 18, 0.82); backdrop-filter: blur(8px); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; opacity: 0; pointer-events: none; transition: opacity 0.2s ease-out; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(34, 32, 32, 0.85); backdrop-filter: blur(8px); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; opacity: 0; pointer-events: none; transition: opacity 0.2s ease-out; }
     .modal-overlay.active { opacity: 1; pointer-events: auto; }
-    .modal-card { background: #0f172a; border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 16px; width: 100%; max-width: 480px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75), 0 0 30px rgba(99, 102, 241, 0.2); transform: scale(0.95); transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1); overflow: hidden; }
+    .modal-card { background: var(--c-charcoal); border: 1px solid rgba(125, 64, 71, 0.6); border-radius: 16px; width: 100%; max-width: 480px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75), 0 0 30px rgba(125, 64, 71, 0.25); transform: scale(0.95); transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1); overflow: hidden; color: var(--c-cream); }
     .modal-overlay.active .modal-card { transform: scale(1); }
-    .modal-header { padding: 18px 24px; border-bottom: 1px solid #1e293b; display: flex; justify-content: space-between; align-items: center; background: rgba(30, 41, 59, 0.3); }
+    .modal-header { padding: 18px 24px; border-bottom: 1px solid rgba(221, 213, 205, 0.2); display: flex; justify-content: space-between; align-items: center; background: rgba(56, 52, 52, 0.4); }
     .modal-body { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
-    .modal-footer { padding: 16px 24px; border-top: 1px solid #1e293b; display: flex; justify-content: flex-end; gap: 10px; background: rgba(15, 23, 42, 0.6); }
-    .modal-close-btn { background: transparent; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer; padding: 4px 8px; border-radius: 6px; }
-    .modal-close-btn:hover { background: #1e293b; color: #f8fafc; }
+    .modal-footer { padding: 16px 24px; border-top: 1px solid rgba(221, 213, 205, 0.2); display: flex; justify-content: flex-end; gap: 10px; background: rgba(46, 46, 46, 0.7); }
+    .modal-close-btn { background: transparent; border: none; color: var(--c-sand); font-size: 1.2rem; cursor: pointer; padding: 4px 8px; border-radius: 6px; }
+    .modal-close-btn:hover { background: var(--c-charcoal-card); color: var(--c-cream); }
   </style>
 </head>
+
 
 <body>
   <!-- NAV -->
@@ -302,10 +312,10 @@
       if (currentUser) {
         container.innerHTML = `
           <button onclick="navigate('profile', '${currentUser.id}')" class="btn btn-secondary" style="display:flex; align-items:center; gap:6px;">
-            ${currentUser.picture ? `<img src="${currentUser.picture}" style="width:22px; height:22px; border-radius:50%;" />` : `<div style="width:20px; height:20px; border-radius:50%; background:#6366f1; color:white; font-size:10px; display:flex; align-items:center; justify-content:center; font-weight:bold;">${currentUser.name.slice(0, 1).toUpperCase()}</div>`}
+            ${currentUser.picture ? `<img src="${currentUser.picture}" style="width:22px; height:22px; border-radius:50%;" />` : `<div style="width:20px; height:20px; border-radius:50%; background:var(--c-burgundy); color:var(--c-cream); font-size:10px; display:flex; align-items:center; justify-content:center; font-weight:bold;">${currentUser.name.slice(0, 1).toUpperCase()}</div>`}
             <span>${escapeHtml(currentUser.name)}</span>
           </button>
-          <button onclick="logout()" class="btn btn-secondary btn-sm" style="color:#ef4444;">Sign Out</button>
+          <button onclick="logout()" class="btn btn-secondary btn-sm" style="color:var(--c-burgundy); border-color:rgba(125,64,71,0.5);">Sign Out</button>
         `;
       } else {
         container.innerHTML = `
@@ -322,7 +332,7 @@
       openModal("🚀 Sign In with Google", `
         <form onsubmit="handleGoogleSignInSubmit(event)" style="display:flex; flex-direction:column; gap:14px;">
           <div style="text-align:center; padding:10px 0;">
-            <div style="width:52px; height:52px; border-radius:50%; background:#ffffff; margin:0 auto 10px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,0.2);">
+            <div style="width:52px; height:52px; border-radius:50%; background:#F1ECE6; margin:0 auto 10px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,0.3);">
               <svg width="26" height="26" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
             </div>
             <p class="text-muted text-xs">Enter your display name to instantly link your collaborator profile.</p>
@@ -407,8 +417,8 @@
 
           <!-- Hero Section -->
           <div style="text-align:center; max-width:860px; margin:40px auto 0; display:flex; flex-direction:column; align-items:center; gap:22px; position:relative; z-index:2;">
-            <div class="glass-pill" style="padding:6px 16px; display:inline-flex; align-items:center; gap:8px; font-size:0.8rem; color:#a5b4fc;">
-              <span style="width:8px; height:8px; border-radius:50%; background:#6366f1; box-shadow:0 0 8px #6366f1;"></span>
+            <div class="glass-pill" style="padding:6px 16px; display:inline-flex; align-items:center; gap:8px; font-size:0.8rem; color:var(--c-sand);">
+              <span style="width:8px; height:8px; border-radius:50%; background:var(--c-burgundy); box-shadow:0 0 8px var(--c-burgundy);"></span>
               <span>The Next-Gen Collaboration Hub for Builders & Hackers</span>
             </div>
 
@@ -437,24 +447,24 @@
             </div>
 
             <!-- Social proof -->
-            <div style="display:flex; align-items:center; gap:12px; margin-top:14px; font-size:0.8rem; color:#94a3b8;">
+            <div style="display:flex; align-items:center; gap:12px; margin-top:14px; font-size:0.8rem; color:var(--c-sand);">
               <div style="display:flex; margin-left:8px;">
-                <div style="width:28px; height:28px; border-radius:50%; background:#6366f1; border:2px solid #030712; margin-left:-8px; display:flex; align-items:center; justify-content:center; font-weight:bold; color:white; font-size:10px;">A</div>
-                <div style="width:28px; height:28px; border-radius:50%; background:#a855f7; border:2px solid #030712; margin-left:-8px; display:flex; align-items:center; justify-content:center; font-weight:bold; color:white; font-size:10px;">S</div>
-                <div style="width:28px; height:28px; border-radius:50%; background:#ec4899; border:2px solid #030712; margin-left:-8px; display:flex; align-items:center; justify-content:center; font-weight:bold; color:white; font-size:10px;">O</div>
+                <div style="width:28px; height:28px; border-radius:50%; background:var(--c-burgundy); border:2px solid var(--c-charcoal); margin-left:-8px; display:flex; align-items:center; justify-content:center; font-weight:bold; color:var(--c-cream); font-size:10px;">A</div>
+                <div style="width:28px; height:28px; border-radius:50%; background:#964e56; border:2px solid var(--c-charcoal); margin-left:-8px; display:flex; align-items:center; justify-content:center; font-weight:bold; color:var(--c-cream); font-size:10px;">S</div>
+                <div style="width:28px; height:28px; border-radius:50%; background:var(--c-sand); color:var(--c-charcoal); border:2px solid var(--c-charcoal); margin-left:-8px; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:10px;">O</div>
               </div>
-              <span>Joined by <strong>2,400+ developers</strong> from MIT, Stanford, IIT & beyond</span>
+              <span>Joined by <strong>2,400+ developers</strong> from top colleges & teams</span>
             </div>
           </div>
 
           <!-- Product Showcase Mockup Card -->
-          <div class="glass-card" style="max-width:1000px; margin:0 auto; padding:28px; border:1px solid rgba(99,102,241,0.3); box-shadow:0 20px 50px rgba(0,0,0,0.6);">
-            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1f2937; padding-bottom:16px; margin-bottom:20px;">
+          <div class="glass-card" style="max-width:1000px; margin:0 auto; padding:28px; border:1px solid rgba(125,64,71,0.4); box-shadow:0 20px 50px rgba(0,0,0,0.6);">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(221,213,205,0.2); padding-bottom:16px; margin-bottom:20px;">
               <div style="display:flex; align-items:center; gap:8px;">
-                <div style="width:12px; height:12px; border-radius:50%; background:#ef4444;"></div>
-                <div style="width:12px; height:12px; border-radius:50%; background:#f59e0b;"></div>
-                <div style="width:12px; height:12px; border-radius:50%; background:#10b981;"></div>
-                <span style="margin-left:12px; font-size:0.8rem; color:#64748b; font-family:monospace;">workspace.pronnect.app/autonomous-rover</span>
+                <div style="width:12px; height:12px; border-radius:50%; background:var(--c-burgundy);"></div>
+                <div style="width:12px; height:12px; border-radius:50%; background:var(--c-sand);"></div>
+                <div style="width:12px; height:12px; border-radius:50%; background:var(--c-cream);"></div>
+                <span style="margin-left:12px; font-size:0.8rem; color:var(--c-sand); font-family:monospace;">workspace.pronnect.app/autonomous-rover</span>
               </div>
               <div style="display:flex; gap:6px;">
                 <span class="badge badge-green"><span class="status-dot status-online" style="margin-right:4px;"></span> 3 Online</span>
@@ -463,36 +473,36 @@
             </div>
 
             <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:16px;">
-              <div style="background:#0b0f19; border:1px solid #1e293b; border-radius:10px; padding:16px; display:flex; flex-direction:column; gap:8px;">
+              <div style="background:var(--c-charcoal-dark); border:1px solid rgba(221,213,205,0.15); border-radius:10px; padding:16px; display:flex; flex-direction:column; gap:8px;">
                 <div class="text-xs font-bold text-muted uppercase">💬 Live Team Chat</div>
-                <div style="font-size:0.8rem; background:#1e293b; padding:8px 12px; border-radius:8px;">Sarah: ROS2 navigation costmaps calibrated! 🚀</div>
-                <div style="font-size:0.8rem; background:#4f46e5; color:white; padding:8px 12px; border-radius:8px; align-self:flex-end;">Alex: Awesome! Testing obstacle avoidance now.</div>
+                <div style="font-size:0.8rem; background:var(--c-charcoal-card); color:var(--c-cream); padding:8px 12px; border-radius:8px;">Sarah: ROS2 navigation costmaps calibrated! 🚀</div>
+                <div style="font-size:0.8rem; background:var(--c-burgundy); color:var(--c-cream); padding:8px 12px; border-radius:8px; align-self:flex-end;">Alex: Awesome! Testing obstacle avoidance now.</div>
                 <div class="typing-indicator" style="padding:0; margin-top:4px;">
                   <span>Alex is typing</span>
                   <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
                 </div>
               </div>
 
-              <div style="background:#0b0f19; border:1px solid #1e293b; border-radius:10px; padding:16px; display:flex; flex-direction:column; gap:8px;">
+              <div style="background:var(--c-charcoal-dark); border:1px solid rgba(221,213,205,0.15); border-radius:10px; padding:16px; display:flex; flex-direction:column; gap:8px;">
                 <div class="text-xs font-bold text-muted uppercase">📋 Kanban Board</div>
-                <div style="background:#1e293b; border-left:3px solid #22c55e; padding:8px 12px; border-radius:6px; font-size:0.8rem;">
+                <div style="background:var(--c-charcoal-card); border-left:3px solid var(--c-sand); padding:8px 12px; border-radius:6px; font-size:0.8rem;">
                   <div style="font-weight:600;">LiDAR Outdoor Mapping</div>
                   <div class="text-muted text-xs">Status: Done ✓</div>
                 </div>
-                <div style="background:#1e293b; border-left:3px solid #f59e0b; padding:8px 12px; border-radius:6px; font-size:0.8rem;">
+                <div style="background:var(--c-charcoal-card); border-left:3px solid var(--c-burgundy); padding:8px 12px; border-radius:6px; font-size:0.8rem;">
                   <div style="font-weight:600;">Hardware Chassis Mount</div>
                   <div class="text-muted text-xs">Status: In Progress</div>
                 </div>
               </div>
 
-              <div style="background:#0b0f19; border:1px solid #1e293b; border-radius:10px; padding:16px; display:flex; flex-direction:column; gap:8px;">
+              <div style="background:var(--c-charcoal-dark); border:1px solid rgba(221,213,205,0.15); border-radius:10px; padding:16px; display:flex; flex-direction:column; gap:8px;">
                 <div class="text-xs font-bold text-muted uppercase">📊 Live Poll</div>
                 <div style="font-size:0.85rem; font-weight:600;">Edge compute inference board?</div>
-                <div style="background:rgba(99,102,241,0.2); border:1px solid rgba(99,102,241,0.4); padding:6px 10px; border-radius:6px; font-size:0.75rem; display:flex; justify-content:space-between;">
+                <div style="background:rgba(125,64,71,0.25); border:1px solid rgba(125,64,71,0.5); padding:6px 10px; border-radius:6px; font-size:0.75rem; display:flex; justify-content:space-between;">
                   <span>Jetson Orin Nano (75%)</span>
                   <span>3 votes</span>
                 </div>
-                <div style="background:#1e293b; padding:6px 10px; border-radius:6px; font-size:0.75rem; display:flex; justify-content:space-between;">
+                <div style="background:var(--c-charcoal-card); padding:6px 10px; border-radius:6px; font-size:0.75rem; display:flex; justify-content:space-between;">
                   <span>Raspberry Pi 5 (25%)</span>
                   <span>1 vote</span>
                 </div>
@@ -547,7 +557,7 @@
           </div>
 
           <!-- Bottom CTA -->
-          <div class="glass-card" style="text-align:center; padding:48px 24px; background:linear-gradient(135deg, rgba(99,102,241,0.15), rgba(168,85,247,0.15)); border:1px solid rgba(99,102,241,0.4);">
+          <div class="glass-card" style="text-align:center; padding:48px 24px; background:linear-gradient(135deg, rgba(125,64,71,0.25), rgba(221,213,205,0.1)); border:1px solid rgba(125,64,71,0.5);">
             <h2 style="font-size:2rem; font-weight:800; margin-bottom:10px;">Ready to Build Your Next Project?</h2>
             <p class="text-muted text-sm max-width-md mx-auto" style="margin-bottom:20px;">Join builders discovering teammates across the globe right now.</p>
             <button onclick="${currentUser ? "navigate('explore')" : "triggerGoogleSignIn()"}" class="btn btn-primary" style="padding:12px 32px; font-size:1rem;">
@@ -620,9 +630,9 @@
 
       if (list.length === 0) {
         grid.innerHTML = `
-          <div style="grid-column:1/-1; text-align:center; padding:60px 20px; color:#9ca3af;">
+          <div style="grid-column:1/-1; text-align:center; padding:60px 20px; color:var(--c-sand);">
             <div style="font-size:2.5rem; margin-bottom:10px;">🚀</div>
-            <h3 style="font-size:1.1rem; color:#f3f4f6; margin-bottom:6px;">No projects created yet</h3>
+            <h3 style="font-size:1.1rem; color:var(--c-cream); margin-bottom:6px;">No projects created yet</h3>
             <p class="text-muted text-sm" style="margin-bottom:16px;">Create a project to start collaborating with team members across different profiles!</p>
             <button onclick="navigate('new-project')" class="btn btn-primary">+ Create Project</button>
           </div>
@@ -642,7 +652,7 @@
             <div>
               <div class="flex justify-between items-center" style="margin-bottom:8px;">
                 <div style="display:flex; align-items:center; gap:6px;">
-                  <h3 style="font-size:1.1rem; font-weight:600; color:#f3f4f6;">${escapeHtml(p.name)}</h3>
+                  <h3 style="font-size:1.1rem; font-weight:600; color:var(--c-cream);">${escapeHtml(p.name)}</h3>
                   ${isPrivate ? '<span class="badge badge-yellow">🔒 Private</span>' : ''}
                 </div>
                 <span class="badge">${memberCount} member${memberCount !== 1 ? 's' : ''}</span>
@@ -652,8 +662,8 @@
                 ${(p.tags || []).map(t => `<span class="badge badge-indigo">${t}</span>`).join('')}
               </div>
             </div>
-            <div class="flex justify-between items-center" style="padding-top:10px; border-top:1px solid #1f2937;">
-              <div style="font-size:0.75rem; color:#9ca3af;">
+            <div class="flex justify-between items-center" style="padding-top:10px; border-top:1px solid rgba(221,213,205,0.2);">
+              <div style="font-size:0.75rem; color:var(--c-sand);">
                 <div>Led by <strong>${leader ? escapeHtml(leader.name) : 'Leader'}</strong></div>
                 ${leader && leader.school ? `<div>🎓 ${escapeHtml(leader.school)}</div>` : ''}
               </div>
@@ -738,8 +748,8 @@
 
       openModal("🔒 Private Project Protected", `
         <form onsubmit="handleUnlockDirectSubmit(event, '${p.id}')" style="display:flex; flex-direction:column; gap:14px;">
-          <div style="background:#0b0f19; padding:12px; border-radius:8px; border:1px solid #1e293b;">
-            <div style="font-weight:700; font-size:1rem; color:#f8fafc;">${escapeHtml(p.name)}</div>
+          <div style="background:var(--c-charcoal-dark); padding:12px; border-radius:8px; border:1px solid rgba(221,213,205,0.2);">
+            <div style="font-weight:700; font-size:1rem; color:var(--c-cream);">${escapeHtml(p.name)}</div>
             <div class="text-muted text-xs" style="margin-top:2px;">${escapeHtml(p.description)}</div>
           </div>
           <div>
@@ -777,7 +787,7 @@
       openModal("🔑 Project Password", `
         <div style="display:flex; flex-direction:column; gap:14px; text-align:center; padding:10px 0;">
           <p class="text-muted text-xs">Share this password with collaborators to allow them to join this private workspace:</p>
-          <div style="background:#0b0f19; border:1px solid #4f46e5; padding:12px; border-radius:8px; font-size:1.2rem; font-weight:800; font-family:monospace; color:#a5b4fc; letter-spacing:2px;">
+          <div style="background:var(--c-charcoal-dark); border:1px solid var(--c-burgundy); padding:12px; border-radius:8px; font-size:1.2rem; font-weight:800; font-family:monospace; color:var(--c-cream); letter-spacing:2px;">
             ${escapeHtml(pass || 'None')}
           </div>
           <button onclick="closeModal()" class="btn btn-primary" style="margin-top:6px;">Done</button>
@@ -791,7 +801,7 @@
       const root = document.getElementById('app-root');
       const project = store.projects.find(p => p.id === projectId);
       if (!project) {
-        root.innerHTML = '<div style="text-align:center; padding:60px; color:#ef4444;">Project not found.</div>';
+        root.innerHTML = '<div style="text-align:center; padding:60px; color:var(--c-burgundy);">Project not found.</div>';
         return;
       }
 
@@ -823,7 +833,7 @@
             </div>
           </div>
 
-          <div style="display:flex; gap:8px; border-bottom:1px solid #1f2937; padding-bottom:8px; overflow-x:auto;">
+          <div style="display:flex; gap:8px; border-bottom:1px solid rgba(221,213,205,0.2); padding-bottom:8px; overflow-x:auto;">
             <button onclick="switchProjectTab('chat')" id="ptab-chat" class="btn btn-primary btn-sm">💬 Team Chat</button>
             <button onclick="switchProjectTab('tasks')" id="ptab-tasks" class="btn btn-secondary btn-sm">📋 Tasks</button>
             <button onclick="switchProjectTab('polls')" id="ptab-polls" class="btn btn-secondary btn-sm">📊 Polls</button>
@@ -885,7 +895,7 @@
           </div>
 
           <div class="glass-card" style="display:flex; flex-direction:column; gap:12px; height:fit-content;">
-            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155; padding-bottom:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(221,213,205,0.2); padding-bottom:8px;">
               <span style="font-weight:700; font-size:0.85rem;">🟢 Who is Online</span>
               <span class="badge badge-green" id="project-online-count">1</span>
             </div>
@@ -897,7 +907,7 @@
       const msgs = store.messages.filter(m => m.projectId === projId);
       const box = document.getElementById('chat-messages');
       if (msgs.length === 0) {
-        box.innerHTML = '<div style="text-align:center; color:#6b7280; margin:auto;">No messages yet. Start the conversation! 👋</div>';
+        box.innerHTML = '<div style="text-align:center; color:var(--c-sand); margin:auto;">No messages yet. Start the conversation! 👋</div>';
       } else {
         box.innerHTML = msgs.map(m => {
           const isMe = currentUser && m.senderId === currentUser.id;
@@ -976,7 +986,7 @@
         if (isOnline) onlineCount++;
 
         return `
-          <div style="display:flex; align-items:center; justify-content:space-between; font-size:0.8rem; background:#0f172a; padding:6px 10px; border-radius:6px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; font-size:0.8rem; background:var(--c-charcoal-dark); padding:6px 10px; border-radius:6px; border:1px solid rgba(221,213,205,0.15);">
             <div style="display:flex; align-items:center; gap:8px;">
               <span class="status-dot ${isOnline ? 'status-online' : 'status-offline'}"></span>
               <span style="font-weight:500;">${escapeHtml(u.name)}</span>
@@ -1043,7 +1053,7 @@
     function renderTaskCol(title, list, status, projId) {
       return `
         <div class="glass-card" style="display:flex; flex-direction:column; gap:10px;">
-          <div class="flex justify-between items-center text-xs" style="font-weight:bold; color:#9ca3af; text-transform:uppercase;">
+          <div class="flex justify-between items-center text-xs" style="font-weight:bold; color:var(--c-sand); text-transform:uppercase;">
             <span>${title}</span>
             <span class="badge">${list.length}</span>
           </div>
@@ -1052,8 +1062,8 @@
             ${list.map(t => {
               const assignee = store.users.find(u => u.id === t.assigneeId);
               return `
-                <div style="background:#0f172a; border:1px solid #334155; border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:6px;">
-                  <div style="font-size:0.875rem; font-weight:500;">${escapeHtml(t.title)}</div>
+                <div style="background:var(--c-charcoal-dark); border:1px solid rgba(221,213,205,0.2); border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:6px;">
+                  <div style="font-size:0.875rem; font-weight:500; color:var(--c-cream);">${escapeHtml(t.title)}</div>
                   ${t.description ? `<div class="text-muted text-xs">${escapeHtml(t.description)}</div>` : ''}
                   <div class="flex justify-between items-center text-xs" style="margin-top:4px;">
                     <span class="text-muted">${assignee ? '👤 ' + escapeHtml(assignee.name) : 'Unassigned'}</span>
@@ -1153,7 +1163,7 @@
       const polls = store.polls.filter(p => p.projectId === projId);
       const box = document.getElementById('polls-list');
       if (polls.length === 0) {
-        box.innerHTML = '<div class="glass-card" style="text-align:center; padding:30px; color:#6b7280;">No polls created yet.</div>';
+        box.innerHTML = '<div class="glass-card" style="text-align:center; padding:30px; color:var(--c-sand);">No polls created yet.</div>';
         return;
       }
       box.innerHTML = polls.map(p => {
@@ -1172,7 +1182,7 @@
                 const hasVoted = userVote === idx;
                 return `
                   <button onclick="votePoll('${p.id}', ${idx}, '${projId}')" class="btn btn-secondary flex justify-between items-center" style="text-align:left; padding:10px 14px; position:relative; overflow:hidden;">
-                    <div style="position:absolute; top:0; left:0; bottom:0; width:${pct}%; background:rgba(99, 102, 241, 0.2);"></div>
+                    <div style="position:absolute; top:0; left:0; bottom:0; width:${pct}%; background:rgba(125, 64, 71, 0.3);"></div>
                     <span style="position:relative; z-index:2;">${escapeHtml(opt)} ${hasVoted ? '✓' : ''}</span>
                     <span class="text-muted text-xs" style="position:relative; z-index:2;">${count} votes (${pct}%)</span>
                   </button>
@@ -1263,14 +1273,14 @@
       const items = store.media.filter(m => m.projectId === projId);
       const grid = document.getElementById('media-grid');
       if (items.length === 0) {
-        grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:30px; color:#6b7280;">No resources shared yet.</div>';
+        grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:30px; color:var(--c-sand);">No resources shared yet.</div>';
         return;
       }
       grid.innerHTML = items.map(m => `
         <a href="${escapeHtml(m.url)}" target="_blank" class="glass-card" style="text-decoration:none; color:inherit; display:flex; gap:12px; align-items:flex-start;">
           <div style="font-size:1.5rem;">🔗</div>
           <div style="overflow:hidden;">
-            <div style="font-weight:500; font-size:0.875rem; color:#f3f4f6;">${escapeHtml(m.name)}</div>
+            <div style="font-weight:500; font-size:0.875rem; color:var(--c-cream);">${escapeHtml(m.name)}</div>
             <div class="text-muted text-xs" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(m.url)}</div>
           </div>
         </a>
@@ -1331,16 +1341,16 @@
         <div class="glass-card" style="display:flex; flex-direction:column; gap:20px;">
           <h3 style="font-weight:600;">Milestone & Progress Overview</h3>
           <div class="grid grid-3">
-            <div class="glass-card" style="text-align:center; background:#0f172a;">
+            <div class="glass-card" style="text-align:center; background:var(--c-charcoal-dark);">
               <div style="font-size:1.75rem; font-weight:bold;">${total}</div>
               <div class="text-muted text-xs">Total Tasks</div>
             </div>
-            <div class="glass-card" style="text-align:center; background:#0f172a;">
-              <div style="font-size:1.75rem; font-weight:bold; color:#eab308;">${inProgress}</div>
+            <div class="glass-card" style="text-align:center; background:var(--c-charcoal-dark);">
+              <div style="font-size:1.75rem; font-weight:bold; color:var(--c-sand);">${inProgress}</div>
               <div class="text-muted text-xs">In Progress</div>
             </div>
-            <div class="glass-card" style="text-align:center; background:#0f172a;">
-              <div style="font-size:1.75rem; font-weight:bold; color:#22c55e;">${done}</div>
+            <div class="glass-card" style="text-align:center; background:var(--c-charcoal-dark);">
+              <div style="font-size:1.75rem; font-weight:bold; color:var(--c-burgundy);">${done}</div>
               <div class="text-muted text-xs">Completed</div>
             </div>
           </div>
@@ -1370,14 +1380,14 @@
             ${requests.map(r => {
               const u = store.users.find(x => x.id === r.userId) || { name: 'User' };
               return `
-                <div class="flex justify-between items-center" style="background:#0f172a; padding:12px 16px; border-radius:8px; border:1px solid #334155;">
+                <div class="flex justify-between items-center" style="background:var(--c-charcoal-dark); padding:12px 16px; border-radius:8px; border:1px solid rgba(221,213,205,0.2);">
                   <div>
                     <div style="font-weight:500;">${escapeHtml(u.name)}</div>
                     <div class="text-muted text-xs">${escapeHtml(u.school || '')}</div>
                   </div>
                   <div style="display:flex; gap:8px;">
-                    <button onclick="handleJoinRequest('${r.id}', 'DENIED', '${projId}')" class="btn btn-secondary btn-sm" style="color:#ef4444;">Deny</button>
-                    <button onclick="handleJoinRequest('${r.id}', 'APPROVED', '${projId}')" class="btn btn-primary btn-sm" style="background:#16a34a;">Approve</button>
+                    <button onclick="handleJoinRequest('${r.id}', 'DENIED', '${projId}')" class="btn btn-secondary btn-sm" style="color:var(--c-burgundy);">Deny</button>
+                    <button onclick="handleJoinRequest('${r.id}', 'APPROVED', '${projId}')" class="btn btn-primary btn-sm">Approve</button>
                   </div>
                 </div>
               `;
@@ -1425,8 +1435,8 @@
             </div>
 
             <!-- Private Project Password Box -->
-            <div id="private-password-box" style="display:none; background:#0f172a; border:1px solid #6366f1; border-radius:8px; padding:12px;">
-              <label class="text-xs" style="color:#a5b4fc; font-weight:bold; margin-bottom:4px; display:block;">🔑 Set Private Project Password</label>
+            <div id="private-password-box" style="display:none; background:var(--c-charcoal-dark); border:1px solid var(--c-burgundy); border-radius:8px; padding:12px;">
+              <label class="text-xs" style="color:var(--c-sand); font-weight:bold; margin-bottom:4px; display:block;">🔑 Set Private Project Password</label>
               <input id="new-proj-pass" placeholder="Enter password to restrict member access" />
               <p class="text-muted text-xs" style="margin-top:4px;">Members must enter this password to join and view this project.</p>
             </div>
@@ -1522,7 +1532,7 @@
 
             <!-- Online presence sidebar -->
             <div class="glass-card" style="display:flex; flex-direction:column; gap:12px; height:fit-content;">
-              <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155; padding-bottom:8px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(221,213,205,0.2); padding-bottom:8px;">
                 <span style="font-weight:700; font-size:0.85rem;">🟢 Online Now</span>
                 <span class="badge badge-green" id="global-online-count">1</span>
               </div>
@@ -1541,7 +1551,7 @@
       const box = document.getElementById('global-chat-messages');
       if (!box) return;
       if (msgs.length === 0) {
-        box.innerHTML = '<div style="text-align:center; color:#6b7280; margin:auto;">No messages yet. Be the first to say hello to everyone! 🌐</div>';
+        box.innerHTML = '<div style="text-align:center; color:var(--c-sand); margin:auto;">No messages yet. Be the first to say hello to everyone! 🌐</div>';
       } else {
         box.innerHTML = msgs.map(m => {
           const isMe = currentUser && m.senderId === currentUser.id;
@@ -1609,17 +1619,17 @@
         <div style="max-width:960px; margin:0 auto; display:flex; flex-direction:column; gap:24px; position:relative;">
           
           <!-- Top Profile Banner & Card -->
-          <div class="glass-card" style="padding:0; overflow:hidden; border:1px solid rgba(99,102,241,0.3); position:relative;">
+          <div class="glass-card" style="padding:0; overflow:hidden; border:1px solid rgba(125,64,71,0.4); position:relative;">
             <!-- Mesh Header Cover -->
-            <div style="height:160px; background:linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4338ca 70%, #6366f1 100%); position:relative;">
-              <div style="position:absolute; inset:0; background:radial-gradient(circle at 80% 20%, rgba(236,72,153,0.35) 0%, transparent 60%);"></div>
+            <div style="height:160px; background:linear-gradient(135deg, #2E2E2E 0%, #3e282b 40%, #7D4047 100%); position:relative;">
+              <div style="position:absolute; inset:0; background:radial-gradient(circle at 80% 20%, rgba(221,213,205,0.2) 0%, transparent 60%);"></div>
               <div style="position:absolute; bottom:12px; right:16px; display:flex; gap:8px;">
                 ${isMe ? `
-                  <button onclick="switchProfileTab('edit')" class="btn btn-secondary btn-sm" style="background:rgba(17,24,39,0.7); backdrop-filter:blur(8px);">
+                  <button onclick="switchProfileTab('edit')" class="btn btn-secondary btn-sm" style="background:rgba(46,46,46,0.85); backdrop-filter:blur(8px);">
                     ✏️ Edit Profile
                   </button>
                 ` : `
-                  <button onclick="copyProfileLink('${user.id}')" class="btn btn-secondary btn-sm" style="background:rgba(17,24,39,0.7); backdrop-filter:blur(8px);">
+                  <button onclick="copyProfileLink('${user.id}')" class="btn btn-secondary btn-sm" style="background:rgba(46,46,46,0.85); backdrop-filter:blur(8px);">
                     🔗 Share Profile
                   </button>
                 `}
@@ -1634,22 +1644,22 @@
                 <div style="display:flex; align-items:flex-end; gap:16px;">
                   <div style="position:relative;">
                     ${user.picture ? `
-                      <img src="${user.picture}" style="width:96px; height:96px; border-radius:24px; border:4px solid #0b0f19; background:#1e293b; object-fit:cover; box-shadow:0 10px 25px rgba(0,0,0,0.5);" />
+                      <img src="${user.picture}" style="width:96px; height:96px; border-radius:24px; border:4px solid var(--c-charcoal-dark); background:var(--c-charcoal-card); object-fit:cover; box-shadow:0 10px 25px rgba(0,0,0,0.5);" />
                     ` : `
-                      <div style="width:96px; height:96px; border-radius:24px; border:4px solid #0b0f19; background:linear-gradient(135deg, #6366f1, #a855f7); color:white; font-size:2.2rem; font-weight:bold; display:flex; align-items:center; justify-content:center; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+                      <div style="width:96px; height:96px; border-radius:24px; border:4px solid var(--c-charcoal-dark); background:linear-gradient(135deg, var(--c-burgundy), #964e56); color:var(--c-cream); font-size:2.2rem; font-weight:bold; display:flex; align-items:center; justify-content:center; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
                         ${avatarLetter}
                       </div>
                     `}
-                    <div class="status-dot status-online" style="position:absolute; bottom:4px; right:4px; width:14px; height:14px; border:2px solid #0b0f19;" title="Online"></div>
+                    <div class="status-dot status-online" style="position:absolute; bottom:4px; right:4px; width:14px; height:14px; border:2px solid var(--c-charcoal-dark);" title="Online"></div>
                   </div>
 
                   <div style="margin-bottom:6px;">
                     <div style="display:flex; align-items:center; gap:8px;">
-                      <h1 style="font-size:1.6rem; font-weight:800; color:#f8fafc;">${escapeHtml(user.name)}</h1>
+                      <h1 style="font-size:1.6rem; font-weight:800; color:var(--c-cream);">${escapeHtml(user.name)}</h1>
                       <span class="badge badge-green" style="font-size:10px;">✓ Verified Collaborator</span>
                     </div>
                     <p class="text-muted text-sm" style="margin-top:2px;">${escapeHtml(headline)}</p>
-                    <div style="display:flex; align-items:center; gap:12px; margin-top:4px; font-size:0.8rem; color:#94a3b8;">
+                    <div style="display:flex; align-items:center; gap:12px; margin-top:4px; font-size:0.8rem; color:var(--c-sand);">
                       <span>📧 ${escapeHtml(user.email || 'Google Connected')}</span>
                       ${user.school ? `<span>🎓 ${escapeHtml(user.school)}</span>` : ''}
                     </div>
@@ -1658,7 +1668,7 @@
 
                 <!-- Google Connected Pill -->
                 <div style="margin-bottom:8px;">
-                  <div class="glass-pill" style="padding:6px 14px; display:flex; align-items:center; gap:8px; font-size:0.75rem; color:#cbd5e1;">
+                  <div class="glass-pill" style="padding:6px 14px; display:flex; align-items:center; gap:8px; font-size:0.75rem; color:var(--c-cream);">
                     <svg width="14" height="14" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
                     <span>Google Account Active</span>
                   </div>
@@ -1667,20 +1677,20 @@
 
               <!-- Stats Ribbon (Figma 4-Box Metric Layout) -->
               <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:12px; margin-top:10px;">
-                <div style="background:#0f172a; border:1px solid #1e293b; border-radius:10px; padding:12px 16px; text-align:center;">
-                  <div style="font-size:1.4rem; font-weight:800; color:#f8fafc;">${projectsLed.length}</div>
+                <div style="background:var(--c-charcoal-dark); border:1px solid rgba(221,213,205,0.2); border-radius:10px; padding:12px 16px; text-align:center;">
+                  <div style="font-size:1.4rem; font-weight:800; color:var(--c-cream);">${projectsLed.length}</div>
                   <div class="text-muted text-xs">Projects Led</div>
                 </div>
-                <div style="background:#0f172a; border:1px solid #1e293b; border-radius:10px; padding:12px 16px; text-align:center;">
-                  <div style="font-size:1.4rem; font-weight:800; color:#818cf8;">${totalProjects}</div>
+                <div style="background:var(--c-charcoal-dark); border:1px solid rgba(221,213,205,0.2); border-radius:10px; padding:12px 16px; text-align:center;">
+                  <div style="font-size:1.4rem; font-weight:800; color:var(--c-sand);">${totalProjects}</div>
                   <div class="text-muted text-xs">Total Workspaces</div>
                 </div>
-                <div style="background:#0f172a; border:1px solid #1e293b; border-radius:10px; padding:12px 16px; text-align:center;">
-                  <div style="font-size:1.4rem; font-weight:800; color:#34d399;">${userTasksDone}</div>
+                <div style="background:var(--c-charcoal-dark); border:1px solid rgba(221,213,205,0.2); border-radius:10px; padding:12px 16px; text-align:center;">
+                  <div style="font-size:1.4rem; font-weight:800; color:var(--c-cream);">${userTasksDone}</div>
                   <div class="text-muted text-xs">Tasks Completed</div>
                 </div>
-                <div style="background:#0f172a; border:1px solid #1e293b; border-radius:10px; padding:12px 16px; text-align:center;">
-                  <div style="font-size:1.4rem; font-weight:800; color:#f59e0b;">⭐ ${reputationScore}</div>
+                <div style="background:var(--c-charcoal-dark); border:1px solid rgba(221,213,205,0.2); border-radius:10px; padding:12px 16px; text-align:center;">
+                  <div style="font-size:1.4rem; font-weight:800; color:var(--c-burgundy);">⭐ ${reputationScore}</div>
                   <div class="text-muted text-xs">Builder Rating</div>
                 </div>
               </div>
@@ -1688,7 +1698,7 @@
           </div>
 
           <!-- Profile Tabs Header -->
-          <div style="display:flex; gap:8px; border-bottom:1px solid #1f2937; padding-bottom:8px; overflow-x:auto;">
+          <div style="display:flex; gap:8px; border-bottom:1px solid rgba(221,213,205,0.2); padding-bottom:8px; overflow-x:auto;">
             <button onclick="switchProfileTab('overview')" id="proftab-overview" class="btn btn-primary btn-sm">📌 Overview & Bio</button>
             <button onclick="switchProfileTab('projects')" id="proftab-projects" class="btn btn-secondary btn-sm">🚀 Workspaces (${totalProjects})</button>
             ${isMe ? `<button onclick="switchProfileTab('edit')" id="proftab-edit" class="btn btn-secondary btn-sm">⚙️ Edit Profile Settings</button>` : ''}
@@ -1725,7 +1735,7 @@
               <!-- About Bio Box -->
               <div class="glass-card" style="display:flex; flex-direction:column; gap:12px;">
                 <h3 style="font-size:1.1rem; font-weight:700;">About & Background</h3>
-                <p style="color:#cbd5e1; font-size:0.9rem; line-height:1.6;">${escapeHtml(bio)}</p>
+                <p style="color:var(--c-cream); font-size:0.9rem; line-height:1.6;">${escapeHtml(bio)}</p>
               </div>
 
               <!-- Skills & Expertise Box -->
@@ -1742,24 +1752,24 @@
               <div class="glass-card" style="display:flex; flex-direction:column; gap:14px;">
                 <h3 style="font-size:1.1rem; font-weight:700;">Connected Channels</h3>
                 <div style="display:flex; flex-direction:column; gap:10px; font-size:0.85rem;">
-                  <div style="display:flex; align-items:center; gap:8px; color:#94a3b8;">
+                  <div style="display:flex; align-items:center; gap:8px; color:var(--c-sand);">
                     <span>🐙 GitHub:</span>
-                    <a href="${user.githubUrl || '#'}" target="_blank" style="color:#818cf8; text-decoration:none;">${user.githubUrl ? escapeHtml(user.githubUrl.replace(/^https?:\/\//, '')) : 'github.com/' + (user.name || '').toLowerCase().replace(/\s+/g, '')}</a>
+                    <a href="${user.githubUrl || '#'}" target="_blank" style="color:var(--c-sand); text-decoration:underline;">${user.githubUrl ? escapeHtml(user.githubUrl.replace(/^https?:\/\//, '')) : 'github.com/' + (user.name || '').toLowerCase().replace(/\s+/g, '')}</a>
                   </div>
-                  <div style="display:flex; align-items:center; gap:8px; color:#94a3b8;">
+                  <div style="display:flex; align-items:center; gap:8px; color:var(--c-sand);">
                     <span>💼 Portfolio:</span>
-                    <a href="${user.portfolioUrl || '#'}" target="_blank" style="color:#818cf8; text-decoration:none;">${user.portfolioUrl ? escapeHtml(user.portfolioUrl.replace(/^https?:\/\//, '')) : 'pronnect.app/@' + (user.name || '').toLowerCase().replace(/\s+/g, '')}</a>
+                    <a href="${user.portfolioUrl || '#'}" target="_blank" style="color:var(--c-sand); text-decoration:underline;">${user.portfolioUrl ? escapeHtml(user.portfolioUrl.replace(/^https?:\/\//, '')) : 'pronnect.app/@' + (user.name || '').toLowerCase().replace(/\s+/g, '')}</a>
                   </div>
-                  <div style="display:flex; align-items:center; gap:8px; color:#94a3b8;">
+                  <div style="display:flex; align-items:center; gap:8px; color:var(--c-sand);">
                     <span>🗓️ Member Since:</span>
-                    <span style="color:#f8fafc;">${user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'August 2026'}</span>
+                    <span style="color:var(--c-cream);">${user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'August 2026'}</span>
                   </div>
                 </div>
               </div>
 
               <!-- Quick Status -->
-              <div class="glass-card" style="display:flex; flex-direction:column; gap:8px; background:linear-gradient(135deg, rgba(99,102,241,0.1), rgba(168,85,247,0.1));">
-                <div style="font-weight:700; font-size:0.9rem; color:#a5b4fc;">🚀 Open for Collaboration</div>
+              <div class="glass-card" style="display:flex; flex-direction:column; gap:8px; background:linear-gradient(135deg, rgba(125,64,71,0.2), rgba(221,213,205,0.1));">
+                <div style="font-weight:700; font-size:0.9rem; color:var(--c-cream);">🚀 Open for Collaboration</div>
                 <p class="text-muted text-xs">Available for hackathons, research teams, and startup projects.</p>
               </div>
             </div>
@@ -1776,7 +1786,7 @@
             </div>
 
             ${userProjects.length === 0 ? `
-              <div class="glass-card" style="text-align:center; padding:40px; color:#94a3b8;">
+              <div class="glass-card" style="text-align:center; padding:40px; color:var(--c-sand);">
                 <div>📂</div>
                 <div style="margin-top:6px;">No projects created or joined yet.</div>
               </div>
@@ -1789,7 +1799,7 @@
                     <div class="glass-card flex flex-col justify-between" style="cursor:pointer;" onclick="navigate('project', '${p.id}')">
                       <div>
                         <div class="flex justify-between items-center" style="margin-bottom:8px;">
-                          <h4 style="font-weight:600; font-size:1rem; color:#f8fafc;">${escapeHtml(p.name)}</h4>
+                          <h4 style="font-weight:600; font-size:1rem; color:var(--c-cream);">${escapeHtml(p.name)}</h4>
                           <span class="badge ${isLeader ? 'badge-indigo' : 'badge-green'}">${isLeader ? 'Leader' : 'Member'}</span>
                         </div>
                         <p class="text-muted text-xs" style="margin-bottom:12px;">${escapeHtml(p.description)}</p>
@@ -1797,7 +1807,7 @@
                           ${(p.tags || []).map(t => `<span class="badge">${t}</span>`).join('')}
                         </div>
                       </div>
-                      <div class="flex justify-between items-center text-xs" style="border-top:1px solid #1f2937; padding-top:8px; color:#94a3b8;">
+                      <div class="flex justify-between items-center text-xs" style="border-top:1px solid rgba(221,213,205,0.2); padding-top:8px; color:var(--c-sand);">
                         <span>👥 ${memberCount} collaborator${memberCount !== 1 ? 's' : ''}</span>
                         <button class="btn btn-secondary btn-sm" style="padding:4px 8px; font-size:10px;">View &rarr;</button>
                       </div>
